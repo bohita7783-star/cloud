@@ -27,14 +27,18 @@ def _normalize(s: str) -> str:
     s = s.replace("･", "・").replace("〜", "～").replace("~", "～")
     # 時刻：22:00 / ２２：００ → 22：00
     s = re.sub(r"(?<!\d)(\d{1,2})[:：](\d{2})(?!\d)", r"\1：\2", s)
-    s = re.sub(r"異常無し|異常無(?!し)", "異常なし", s)
+    # 「異常無し」は常に統一。「異常無」は文末・句読点・空白の前だけ（「異常無く」「異常無線」等を壊さない）
+    s = s.replace("異常無し", "異常なし")
+    s = re.sub(r"異常無(?![ぁ-んァ-ヶ一-龥ー])", "異常なし", s)
     return s
 
 
-def _wrap(first_prefix: str, text: str) -> list:
+def _wrap(first_prefix: str, text: str, width) -> list:
+    if width is None:                       # 折り返さない（プレビュー専用／印刷確認前の本番適用を避ける用）
+        return [first_prefix + text]
     lines, cur = [], first_prefix
     for ch in text:
-        if _width(cur + ch) > WRAP_WIDTH:
+        if _width(cur + ch) > width:
             lines.append(cur)
             cur = INDENT
         cur += ch
@@ -42,7 +46,7 @@ def _wrap(first_prefix: str, text: str) -> list:
     return lines
 
 
-def format_entry(text: str) -> list:
+def format_entry(text: str, wrap_width=WRAP_WIDTH) -> list:
     """利用者が入力した1項目（改行可）を、日報の行リストへ整形する。"""
     result = []
     for raw in text.splitlines():
@@ -50,8 +54,8 @@ def format_entry(text: str) -> list:
         if not raw:
             continue
         if raw.startswith(NO_DOT_STARTS):
-            result.extend(_wrap("", raw))
+            result.extend(_wrap("", raw, wrap_width))
         else:
             body = raw.lstrip("・ 　")
-            result.extend(_wrap("・", body))
+            result.extend(_wrap("・", body, wrap_width))
     return result

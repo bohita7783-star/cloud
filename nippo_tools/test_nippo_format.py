@@ -55,5 +55,37 @@ class T(unittest.TestCase):
         self.assertEqual(format_entry("\n\n漏水\n\n"), ["・漏水"])
 
 
+class SpecExamples(unittest.TestCase):
+    """別AI作成「入力項目仕様書 v0.1」§2 の文章例7件と、追加の誤変換防止ケース。"""
+
+    def test_spec_examples(self):
+        cases = [
+            ("区画25の天井漏水を確認", "・区画25の天井漏水を確認"),
+            ("・異常無", "・異常なし"),
+            ("【ホテル】", "【ホテル】"),
+            ("【作業届】", "【作業届】"),
+            ("➡翌朝再確認する", "➡翌朝再確認する"),
+            ("･警報なし", "・警報なし"),
+            ("ﾌﾞﾚｰｶｰを確認", "・ブレーカーを確認"),
+        ]
+        for src, exp in cases:
+            with self.subTest(src=src):
+                self.assertEqual(format_entry(src), [exp])
+
+    def test_abnormal_not_overreplaced(self):
+        # 「異常無く」「異常無かった」「異常無線」は別の語。「異常なしく」等にしてはいけない
+        for s in ("異常無く復旧", "異常無かった", "異常無線"):
+            with self.subTest(s=s):
+                self.assertEqual(format_entry(s), ["・" + s])
+
+    def test_abnormal_at_punctuation(self):
+        self.assertEqual(format_entry("調査実施するも異常無。"), ["・調査実施するも異常なし。"])
+        self.assertEqual(format_entry("異常無（確認済）"), ["・異常なし（確認済）"])
+
+    def test_no_wrap_mode(self):
+        out = format_entry("あ" * 80, wrap_width=None)
+        self.assertEqual(out, ["・" + "あ" * 80])
+
+
 if __name__ == "__main__":
     unittest.main()
