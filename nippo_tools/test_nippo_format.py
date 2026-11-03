@@ -87,5 +87,9 @@ class SpecExamples(unittest.TestCase):
         self.assertEqual(out, ["・" + "あ" * 80])
 
 
+    def test_fullwidth_time_digits(self):
+        self.assertEqual(format_entry("２２：００～２３：３０"), ["・22：00～23：30"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -26,7 +26,11 @@ def _normalize(s: str) -> str:
     s = re.sub("[Ａ-Ｚａ-ｚ]+", lambda m: unicodedata.normalize("NFKC", m.group()), s)
     s = s.replace("･", "・").replace("〜", "～").replace("~", "～")
     # 時刻：22:00 / ２２：００ → 22：00
-    s = re.sub(r"(?<!\d)(\d{1,2})[:：](\d{2})(?!\d)", r"\1：\2", s)
+    def _clock(m):
+        h = unicodedata.normalize("NFKC", m.group(1))
+        mi = unicodedata.normalize("NFKC", m.group(2))
+        return f"{h}：{mi}"
+    s = re.sub(r"(?<!\d)(\d{1,2})[:：](\d{2})(?!\d)", _clock, s)
     # 「異常無し」は常に統一。「異常無」は文末・句読点・空白の前だけ（「異常無く」「異常無線」等を壊さない）
     s = s.replace("異常無し", "異常なし")
     s = re.sub(r"異常無(?![ぁ-んァ-ヶ一-龥ー])", "異常なし", s)

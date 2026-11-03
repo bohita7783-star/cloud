@@ -70,15 +70,32 @@ class T(unittest.TestCase):
         g = grid(extra={(45, 3): "テナント関係"})
         self.assertIn("重複", resolve(g, "テナント関係", 1, **KW).reason)
 
-    def test_fill_gaps_uses_middle_row(self):
-        g = grid(texts={30: "a", 32: "c", 35: "z"})        # 末尾35行目まで使用済みだが途中に空き
-        self.assertEqual(resolve(g, "テナント関係", 1, **KW).status, "NeedsReview")
-        r = resolve(g, "テナント関係", 1, fill_gaps=True, **KW)
-        self.assertEqual((r.status, r.rows), ("OK", (31,)))
+    def test_tail_preferred_even_if_gap_exists(self):
+        # 途中に空きがあっても、末尾に空きがあれば OK（要承認にしない）
+        r = resolve(grid(texts={30: "a", 32: "c"}), "テナント関係", 1, **KW)
+        self.assertEqual((r.status, r.rows), ("OK", (33,)))
 
-    def test_fill_gaps_needs_consecutive(self):
+    def test_gap_is_candidate_only_when_tail_full(self):
+        g = grid(texts={30: "a", 32: "c", 35: "z"})        # 末尾35行目まで使用済みだが途中に空き
+        r = resolve(g, "テナント関係", 1, **KW)
+        self.assertEqual((r.status, r.rows), ("Candidate", (31,)))
+        self.assertIn("承認", r.reason)
+        self.assertEqual(resolve(g, "テナント関係", 1, offer_candidates=False, **KW).status, "NeedsReview")
+
+    def test_candidate_needs_consecutive(self):
         g = grid(texts={30: "a", 32: "c", 34: "e", 35: "z"})  # 空きは31,33の単独のみ
-        self.assertEqual(resolve(g, "テナント関係", 2, fill_gaps=True, **KW).status, "NeedsReview")
+        self.assertEqual(resolve(g, "テナント関係", 2, **KW).status, "NeedsReview")
+
+    def test_time_or_worker_only_row_is_review(self):
+        for extra in ({(33, 6): 0.5}, {(33, 70): "巡回担当"}):
+            with self.subTest(extra=extra):
+                r = resolve(grid(texts={30: "a"}, extra=extra), "テナント関係", 1, **KW)
+                self.assertEqual(r.status, "NeedsReview"); self.assertIn("本文未入力", r.reason)
+
+    def test_nonpositive_line_count(self):
+        for n in (0, -1):
+            with self.subTest(n=n):
+                self.assertEqual(resolve(grid(), "テナント関係", n, **KW).status, "NeedsReview")
 
 
 if __name__ == "__main__":

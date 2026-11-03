@@ -5,8 +5,12 @@
   - 日付は「対象年・月・日・シート名」をセットで照合（年 A4 / 月 K4 / 日 S4 / シート名 "(日)"）。
   - 分類見出しは D 列を毎回探索（固定の行番号は使わない）。見出しが欠落・重複なら NeedsReview。
   - 記入欄 = 見出し行〜次の見出し(最後は A 列「発注品」)の直前。
-  - 追記位置 = 「最後に記入のある行」の次。対象行の G/M/Q/BS が空であること。
-  - 複数行を書く場合は連続した空き行が必要。足りなければ NeedsReview（行挿入はしない）。
+  - 「記入済み」= G/M/Q/BS のどれかに記入がある行。本文(Q)が空で時刻・作業者だけの行は
+    編集中/予約の可能性があるため NeedsReview。
+  - 追記位置 = 最後の記入済み行の次（末尾）。連続した空きが足りれば OK（自動転記してよい）。
+  - 末尾に足りない場合だけ、途中の空き行（連続 n_lines 行）を Candidate（設備員の承認が必要）として示す。
+    Candidate は自動書込み禁止。承認後に再読込して、空き・ロック・版を再確認すること。
+  - どれもだめなら NeedsReview（行挿入はしない）。
 """
 from dataclasses import dataclass
 from typing import Callable, Optional
@@ -20,7 +24,7 @@ SCAN_FROM, SCAN_TO = 15, 70
 
 @dataclass
 class Resolution:
-    status: str                 # "OK" / "NeedsReview"
+    status: str                 # "OK" / "Candidate"（要承認） / "NeedsReview"
     rows: tuple = ()            # 書き込む行（0始まり）
     reason: str = ""
 
@@ -73,9 +77,9 @@ def _free(cell: Callable, r: int) -> bool:
 
 
 def resolve(cell: Callable, section: str, n_lines: int, *, sheet_name: str,
-            year: int, month: int, day: int, fill_gaps: bool = False) -> Resolution:
-    """fill_gaps=False（既定）: 最後の記入の次の行に追記（時系列を崩さない・保守的）。
-    fill_gaps=True: 記入欄の途中の空き行（連続 n_lines 行）も使う。"""
+            year: int, month: int, day: int, offer_candidates: bool = True) -> Resolution:
+    if n_lines < 1:
+        return Resolution("NeedsReview", reason="追記する行数は1以上が必要")
     bad = check_date(cell, sheet_name, year, month, day)
     if bad:
         return Resolution("NeedsReview", reason=bad)
@@ -84,24 +88,25 @@ def resolve(cell: Callable, section: str, n_lines: int, *, sheet_name: str,
         return Resolution("NeedsReview", reason=err)
     if section not in pos:
         return Resolution("NeedsReview", reason=f"未知の分類 {section!r}")
-    order = sorted(pos.values())
     start = pos[section]
-    nxt = [p for p in order if p > start]
+    nxt = [p for p in sorted(pos.values()) if p > start]
     end = nxt[0] if nxt else _end_row(cell, start)
     if end is None:
         return Resolution("NeedsReview", reason="記入欄の終端(発注品)が見つからない")
-    filled = [r for r in range(start, end) if _s(cell(r, C_Q))]
-    first = (filled[-1] + 1) if filled else start
-    if fill_gaps:
+
+    occupied = [r for r in range(start, end) if not _free(cell, r)]
+    partial = [r for r in occupied if not _s(cell(r, C_Q))]
+    if partial:
+        return Resolution("NeedsReview", reason=f"本文未入力の途中行あり: {partial[0] + 1}行")
+
+    first = (occupied[-1] + 1) if occupied else start          # 末尾
+    if first + n_lines <= end:
+        return Resolution("OK", rows=tuple(range(first, first + n_lines)))
+
+    if offer_candidates:                                          # 末尾に入らない場合のみ、途中の空きを候補に
         run = next((a for a in range(start, end - n_lines + 1)
                     if all(_free(cell, r) for r in range(a, a + n_lines))), None)
-        if run is None:
-            return Resolution("NeedsReview", reason=f"追記欄不足（連続{n_lines}行の空きなし）")
-        return Resolution("OK", rows=tuple(range(run, run + n_lines)))
-    rows = tuple(range(first, first + n_lines))
-    if rows[-1] >= end:
-        return Resolution("NeedsReview", reason=f"追記欄不足（空き{max(end - first, 0)}行／必要{n_lines}行）")
-    for r in rows:
-        if any(_s(cell(r, c)) for c in (C_G, C_M, C_Q, C_BS)):
-            return Resolution("NeedsReview", reason=f"{r + 1}行目が空きでない（時刻・内容・作業者のいずれかが記入済み）")
-    return Resolution("OK", rows=rows)
+        if run is not None:
+            return Resolution("Candidate", rows=tuple(range(run, run + n_lines)),
+                              reason="途中の空き行候補。設備員の明示承認が必要")
+    return Resolution("NeedsReview", reason=f"追記欄不足（末尾の空き{max(end - first, 0)}行／必要{n_lines}行）")
