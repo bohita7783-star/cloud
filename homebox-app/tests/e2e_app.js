@@ -68,7 +68,7 @@ const must = (cond, msg) => { if (!cond) throw new Error(msg); };
   const caseId = (await p.textContent('.eyebrow')).trim();
   const field = label => p.locator('label.field', { hasText: label }).locator('input,textarea,select').first();
   await field('件名').fill('架空 熱源水ポンプ 異音');
-  await field('状況概要').fill('架空：軸受付近から周期的な異音。漏水なし。');
+  await field('最初の状況').fill('架空：軸受付近から周期的な異音。漏水なし。');
   await field('現場確認を実施').check();
   await field('現場確認開始').fill('10:35');
   await p.waitForTimeout(800);

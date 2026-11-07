@@ -29,7 +29,7 @@ from lxml import etree as ET
 import approval as AP
 import engine_policy as EP
 
-INSPECTOR_VERSION = '2.4.2-homebox-preview'
+INSPECTOR_VERSION = '2.5.0-layout-preview'
 SS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
 REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 NS = {'m': SS}

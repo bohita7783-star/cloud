@@ -138,7 +138,7 @@ import stat
 
 import engine_policy as EP
 
-VERSION = '2.4.2-homebox-preview'
+VERSION = '2.5.0-layout-preview'
 # Kept for reference only. Since 2.3.3 the template must match a SIGNED approval manifest
 # (approval.verify_manifest) instead of this single hard-coded hash.
 LEGACY_COMPANY_TEMPLATE_SHA256 = '569966343fa14d98a84bb45ccc27f9a54cfacb30b161f3bd9cc2cd536cdd53cc'
@@ -167,7 +167,14 @@ CLEAR_REPORT = {
     'G36','K36','T36','AH36','AL36','AU36','G37','K37','T37','AH37','AL37','AU37',
     'C28','C29','C30','N33','N34','N35','G26',
 }
-CLEAR_REPORT.update(f'{col}{row}' for row in range(15,27) for col in ('C','G'))
+CLEAR_REPORT.update(f'{col}{row}' for row in range(15,28) for col in ('C','G'))
+# 2.5.0: every cell the report layout writes is cleared first, except cells whose
+# template value must survive when the case leaves them empty (site name, and the
+# '：' placeholders of the notification means cells).
+import report_layout as _RL
+KEEP_TEMPLATE_IF_EMPTY = {'AP2','AP3'}  # means cells are always rewritten ('：' when unused)
+CLEAR_REPORT.update(_RL.REPORT_CELLS - KEEP_TEMPLATE_IF_EMPTY)
+CLEAR_REPORT.update({'AR33','AR35'})
 CLEAR_PHOTO = {'B1','P3'}
 for _, num, loc, desc, mark, _ in PHOTO_SLOTS:
     CLEAR_PHOTO.update((num,loc,desc,mark))
@@ -453,59 +460,18 @@ def scrub_orphan_shared_strings(shared_xml, sheets):
     return encode_xml(root),cleared
 
 
-def build_updates(case, photos, timeline):
+def build_updates_with_notes(case, photos, timeline, today=None):
+    """2.5.0: lay the case out like completed company reports (see report_layout.py)."""
+    import report_layout as RL
     incident_date=strict_datetime(case['発生日時'],'発生日時')
     issue_day=(incident_date.date()-datetime.date(1899,12,30)).days
-    kind=safe_text(case.get('件名'))
-    scene=safe_text(case.get('状況概要'))
-    r={'AB2':'【検証・未承認】','AU1':issue_day,
-       'G3':safe_text(case.get('発生区分')),'W3':safe_text(case.get('案件類型')),
-       'G4':safe_text(case.get('職種')),'AP4':safe_text(case.get('発見者・報告者')),
-       'G5':issue_day,'X5':incident_date.hour,'AC5':incident_date.minute,
-       'AN5':safe_text(case.get('発見者・報告者')),
-       'G6':'【検証用】'+kind,'AP6':safe_text(case.get('発生場所')),
-       'G8':'有' if parse_bool(case.get('現場確認を実施'),'現場確認を実施') else None,
-       'G9':'有' if parse_bool(case.get('一次対応を実施'),'一次対応を実施') else None,
-       'G15':'【Field Survey入力】'+scene,'C15':incident_date.strftime('%H:%M'),
-       'C28':safe_text(case.get('原因・考察')),
-       'N32':safe_text(case.get('応急処置')),
-       'G32':'応急処置：' if case.get('応急処置') else None,
-       'G26':safe_text(case.get('恒久対策・今後の予定')),
-       'G54':'【検証用】'+kind,
-       'AP54':safe_text(case.get('発生場所')),
-       'G53':issue_day,'X53':incident_date.hour,'AC53':incident_date.minute,
-       }
-    # Never insert new time values unless the user actually supplied them.
-    for label,col in (('現場確認開始','L8'),('現場確認終了','S8'),('一次対応開始','L9'),('一次対応終了','S9')):
-        if case.get(label) not in (None,''):
-            text=hhmm(case[label])
-            if not re.fullmatch(r'\d{2}:\d{2}',text or ''):raise ValueError('Invalid time: '+label)
-            h,mi=map(int,text.split(':'))
-            if h>23 or mi>59:raise ValueError('Invalid time: '+label)
-            r[col]=(h*60+mi)/1440
-    if case.get('影響範囲'):r['G16']='影響範囲：'+safe_text(case['影響範囲'])
-    if not timeline:r['G17']='【対応経過は未登録】'
-    else:
-        if len(timeline)>8:raise ValueError('Timeline too long')
-        def timeline_sort_key(rec):
-            dt=rec.get('対応日時')
-            return (1,datetime.datetime.max) if dt in (None,'') else (0,strict_datetime(dt,'対応日時'))
-        for i,rec in enumerate(sorted(timeline,key=timeline_sort_key)):
-            addr=f'G{17+i}';hour=hhmm(rec.get('対応日時'))
-            contents=safe_text(rec.get('実施内容・確認結果'))
-            if not contents:raise ValueError('Timeline description missing')
-            parts=[contents]
-            for field in ('担当','測定数値など','連絡先・連絡結果'):
-                if rec.get(field):parts.append(f'{field}：{safe_text(rec[field])}')
-            r[addr]='\n'.join(parts)
-            if hour:r[f'C{17+i}']=hour
-    p={'B1':'【検証・未承認】'+kind,'P3':issue_day}
-    for i,photo in enumerate(photos):
-        _,num,loc,desc,mark,_=PHOTO_SLOTS[i]
-        p[num]=i+1
-        p[loc]=safe_text(photo.get('撮影場所'))
-        p[desc]=safe_text(photo.get('写真右側の説明文'))
-        p[mark]=('【手動加工指示・未反映】'+safe_text(photo.get('注釈・マーキングの指示'))) if photo.get('注釈・マーキングの指示') else None
+    r,warn=RL.layout_report(case,timeline,case.get('_contacts') or [],strict_datetime,parse_bool,hhmm,today=today)
+    p,pwarn=RL.layout_photos(case,photos,issue_day,PHOTO_SLOTS)
+    return r,p,warn+pwarn
+
+
+def build_updates(case, photos, timeline):
+    r,p,_=build_updates_with_notes(case,photos,timeline)
     return r,p
 
 
@@ -908,6 +874,16 @@ def verify_output_against_approval(template, output_bytes, approval, allowed_rep
                     t=_text_of_cell(c,tshared).strip()
                     if len(t)>=4:legacy.add(t)
         legacy.update(x for x in legacy_props if len(x)>=2)
+        # Text that also sits in the template's KEPT, non-formula cells (labels, the
+        # hidden dropdown lists such as （第１報）/故　障　/【当社の社員】) is part of the
+        # form itself, not incident residue. Formula caches do not count: they are removed.
+        kept_static=[]
+        for part,allowed in ((EP.SHEET_REPORT,allowed_report),(EP.SHEET_PHOTO,allowed_photo)):
+            for c in xml_root(a.read(part)).findall('m:sheetData/m:row/m:c',ns):
+                if c.get('r') not in allowed and c.find('m:f',ns) is None:
+                    t=_text_of_cell(c,tshared).strip()
+                    if t:kept_static.append(t)
+        legacy={m for m in legacy if not any(m in t for t in kept_static)}
         joined_inputs='\n'.join(input_texts)
         legacy={m for m in legacy if m not in joined_inputs}
         oshared=os_
@@ -950,7 +926,6 @@ def verify_package(source, output_bytes, photo_count, expected,old_markers):
         for root,addr,val in [(sheet,'G6',expected['title']),(sheet,'AP6',expected['location']),
                               (pic_sheet,'N10',expected['first_description'])]:
             if text_at(root,addr)!=val:raise ValueError('Output verification failed: '+addr)
-        if text_at(sheet,'AP9') is not None:raise ValueError('Legacy incident remains in AP9')
         for xml in (sheet,pic_sheet):
             for c in xml.findall('.//m:sheetData/m:row/m:c',ns):
                 f=c.find('m:f',ns)
@@ -1057,11 +1032,11 @@ def make_report_from_homebox(package, template, out, audit_path=None,
 def _finish_report(sources,hashes_before,output,audit,corp,zp,case,photo_rows,timeline,approved,
                    photo_actions,source_total,input_info):
     embedded,details=read_photos(zp,photo_rows,corp,photo_actions)
-    report_update,photo_update=build_updates(case,photo_rows,timeline)
+    report_update,photo_update,layout_warnings=build_updates_with_notes(case,photo_rows,timeline)
     content,change_log=transform_package(corp,report_update,photo_update,embedded,approval=approved)
-    expected={'title':'【検証用】'+safe_text(case['件名']),
+    expected={'title':safe_text(case['件名']),
               'location':safe_text(case['発生場所']),
-              'first_description':safe_text(photo_rows[0]['写真右側の説明文']) if photo_rows else None}
+              'first_description':(str(photo_rows[0]['写真右側の説明文']).strip().split('\n')[0].strip() if photo_rows else None)}
     verified=verify_package(corp,content,len(photo_rows),expected,legacy_markers_from_template(corp))
     review={
         'status':'TEST_DRAFT_NOT_APPROVED','version':VERSION,
@@ -1082,6 +1057,7 @@ def _finish_report(sources,hashes_before,output,audit,corp,zp,case,photo_rows,ti
             'No direct Field Survey annotations drawn on images','Unmapped questionnaire columns require manual review',
             'Photo source is retained in the original photos ZIP; embedded images are downscaled'],
         'checks':verified,'ooxml':change_log,
+        'layout_version':__import__('report_layout').LAYOUT_VERSION,'layout_warnings':layout_warnings,
         'approval':{k:approved['approval'].get(k) for k in ('approval_id','approver','approver_key_id','approved_at','valid_until')},
         'approval_manifest':{'file':approved['_manifest_file'],'sha256':approved['_manifest_sha256'],
                              'template_sha256':approved['template']['sha256'],

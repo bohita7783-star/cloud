@@ -18,18 +18,31 @@ import zipfile
 
 from converter_mobile import zip_guard, MAX_TEXT_LENGTH
 
-SCHEMA = 'hb-report-package/1'
+SCHEMA = 'hb-report-package/2'
+ACCEPTED_SCHEMAS = ('hb-report-package/1', 'hb-report-package/2')
 MAX_PACKAGE = 160 * 1024 * 1024
 
-CASE_KEYS = {
+CASE_KEYS_V1 = {
     'ID', '案件識別番号', '設備ID', '発生日時', '件名', '発生区分', '職種', '対象区分', '発生場所', '案件類型',
     '発見者・報告者', '現場確認を実施', '現場確認開始', '現場確認終了', '一次対応を実施', '一次対応開始',
     '一次対応終了', '状況概要', '影響範囲', '原因・考察', '応急処置', '恒久対策・今後の予定',
     'オーナー・テナント報告', '対応業者への連絡', '社内報告', '報告先・提出状況', '復旧・完了状況',
 }
+CASE_KEYS = {
+    'ID', '案件識別番号', '設備ID', '発生日時', '件名', '発生区分', '職種', '対象区分', '発生場所', '案件類型',
+    '発見者・報告者', '現場確認を実施', '現場確認開始', '現場確認終了', '一次対応を実施', '一次対応開始',
+    '一次対応終了', '状況概要', '影響範囲', '原因・考察', '応急処置', '恒久対策・今後の予定',
+    'オーナー・テナント報告', '対応業者への連絡', '社内報告', '報告先・提出状況', '復旧・完了状況',
+    # 2.5.0 (hb-report-package/2): fields of the company form
+    '報告の段階', '部署', 'ビル名', '報告者', '報告者の役職', '当事者', '当事者の区分', '連絡先',
+    '現場確認の実施者', '現場確認の内容', '一次対応の実施者', '一次対応の内容',
+    '処置報告の区分', '処置の実施者', '処置の確認者',
+}
+CONTACT_KEYS = {'区分', '手段', '相手', '所属'}
+MAX_CONTACTS = 20
 PHOTO_KEYS = {'ID', '写真番号', '撮影日時', '撮影日時の根拠', '登録日時', '撮影場所', '元写真', '写真右側の説明文',
               '注釈・マーキングの指示', '種別', 'sha256'}
-TOP_KEYS = {'schema', 'created_at', 'app', 'case', 'equipment', 'photos', 'timeline'}
+TOP_KEYS = {'schema', 'created_at', 'app', 'case', 'equipment', 'photos', 'timeline', 'contacts'}
 EQUIPMENT_KEYS = {'id', 'name', 'category', 'location'}
 APP_KEYS = {'name', 'version'}
 MAX_PHOTOS_IN_PACKAGE = 20
@@ -78,7 +91,7 @@ def read_package(path):
             _stop('package.json を読めません')
         if not isinstance(data, dict):
             _stop('package.json の形式が違います')
-        if data.get('schema') != SCHEMA:
+        if data.get('schema') not in ACCEPTED_SCHEMAS:
             _stop('対応していない形式です: ' + str(data.get('schema')))
         unknown = sorted(set(data) - TOP_KEYS)
         if unknown:
@@ -97,6 +110,12 @@ def read_package(path):
         raw_timeline = data.get('timeline') or []
         if not isinstance(raw_photos, list) or not isinstance(raw_timeline, list):
             _stop('写真・対応経過の形式が違います')
+        raw_contacts = data.get('contacts') or []
+        if data.get('schema') == 'hb-report-package/1' and ('contacts' in data or set(case) - CASE_KEYS_V1):
+            _stop('hb-report-package/1 に /2 の項目が入っています')
+        if not isinstance(raw_contacts, list) or len(raw_contacts) > MAX_CONTACTS:
+            _stop('通報・連絡の形式または件数が違います')
+        case['_contacts'] = [_scalar_dict(c, CONTACT_KEYS, f'連絡{i}') for i, c in enumerate(raw_contacts, 1)]
         if len(raw_photos) > MAX_PHOTOS_IN_PACKAGE or len(raw_timeline) > MAX_TIMELINE_IN_PACKAGE:
             _stop('写真または対応経過の件数が多すぎます')
         if raw_photos and not case_eq:
@@ -151,7 +170,7 @@ def read_package(path):
             timeline.append(t)
     info = {
         'kind': 'homebox-package',
-        'schema': SCHEMA,
+        'schema': data.get('schema'),
         'package_sha256': hashlib.sha256(raw).hexdigest(),
         'app': {k: str(v) for k, v in (data.get('app') or {}).items() if k in ('name', 'version')},
         'created_at': str(data.get('created_at') or ''),

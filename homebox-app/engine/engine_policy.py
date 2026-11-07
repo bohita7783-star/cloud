@@ -13,7 +13,7 @@ Standard library only, so the inspector can run on an admin PC without Pillow.
 """
 import re
 
-ENGINE_POLICY_VERSION = 'report-2026-10-17/engine-2.3.4'
+ENGINE_POLICY_VERSION = 'report-2026-10-17/engine-2.5.0'
 LAYOUT_ID = 'genba-ijou-sokuho-2026-10-17'
 
 SHEET_REPORT = 'xl/worksheets/sheet1.xml'

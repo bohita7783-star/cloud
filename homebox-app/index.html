@@ -173,9 +173,9 @@ details.more summary{cursor:pointer;font-weight:800}
    a file the user exports: backup ZIP, ledger CSV, or a report package for
    the Field Survey converter (hb-report-package/1).
    ==================================================================== */
-const APP_VERSION = '0.2.0';
+const APP_VERSION = '0.3.0';
 const DB_NAME = 'homebox', DB_VERSION = 1;
-const PKG_SCHEMA = 'hb-report-package/1', BACKUP_SCHEMA = 'hb-backup/1';
+const PKG_SCHEMA = 'hb-report-package/2', BACKUP_SCHEMA = 'hb-backup/1';
 const MAX_REPORT_PHOTOS = 3, MAX_TIMELINE = 8;
 const KINDS = ['銘板', '全景', '圧力計', '異常箇所', 'その他'];
 const CATEGORIES = ['ポンプ', 'ファン・送風機', '発電機', 'ボイラー・熱源', '空調機', '電気設備', '給排水', '消防・防災', 'その他'];
@@ -324,33 +324,53 @@ function validateNewField(label, unit, key) {
 }
 const STATUS = { todo: '未確認', ok: '確認済', na: '対象外' };
 // Incident form = Field Survey template field names (the converter maps them 1:1).
+// Incident form = the company form 現場異常報告 (choices are the form's own lists).
+// Keys stay the Field Survey names where they existed; l = label shown on screen.
+const STAGES = ['（第１報）', '（第２報）', '（第３報）', '（最終）', '(事故報告)'];
 const CASE_FIELDS = [
-  { k: '案件識別番号', t: 'text', g: '基本', un: true },
-  { k: '発生日時', t: 'datetime', g: '基本', req: true },
-  { k: '件名', t: 'text', g: '基本', req: true },
-  { k: '発生区分', t: 'select', g: '基本', opt: ['故障', '事故', '苦情', 'その他'] },
-  { k: '職種', t: 'select', g: '基本', opt: ['設備', '建築', '消防・防災', '電気', 'その他'] },
-  { k: '対象区分', t: 'select', g: '基本', opt: ['', '設備室', '共用部', 'テナント専有部', '外構・通路', 'その他'], un: true },
-  { k: '発生場所', t: 'text', g: '基本', req: true },
-  { k: '案件類型', t: 'select', g: '基本', opt: ['漏水', '床・会所蓋破損', '電気設備焼損', '空調不冷', 'その他'] },
-  { k: '発見者・報告者', t: 'text', g: '基本' },
-  { k: '現場確認を実施', t: 'bool', g: '現場対応' },
-  { k: '現場確認開始', t: 'time', g: '現場対応' },
-  { k: '現場確認終了', t: 'time', g: '現場対応' },
-  { k: '一次対応を実施', t: 'bool', g: '現場対応' },
-  { k: '一次対応開始', t: 'time', g: '現場対応' },
-  { k: '一次対応終了', t: 'time', g: '現場対応' },
-  { k: '状況概要', t: 'area', g: '内容', req: true, tip: '最初に確認した事実だけ。推測は「原因・考察」へ。' },
-  { k: '影響範囲', t: 'area', g: '内容', tip: 'テナント営業、給排水、転倒・人身など。影響なしでも記録。' },
-  { k: '原因・考察', t: 'area', g: '内容', tip: '確定と推定を分けて書く。' },
-  { k: '応急処置', t: 'area', g: '内容' },
-  { k: '恒久対策・今後の予定', t: 'area', g: '内容' },
-  { k: 'オーナー・テナント報告', t: 'area', g: '報告・連絡', un: true },
-  { k: '対応業者への連絡', t: 'area', g: '報告・連絡', un: true },
-  { k: '社内報告', t: 'area', g: '報告・連絡', un: true },
-  { k: '報告先・提出状況', t: 'area', g: '報告・連絡', un: true },
-  { k: '復旧・完了状況', t: 'select', g: '報告・連絡', opt: ['調査中', '応急処置中', '恒久修繕待ち', '復旧済み', '経過観察中', 'その他'], un: true },
+  { k: '報告の段階', t: 'select', g: '報告書', opt: STAGES, tip: '原因・処置・予防対策を第１報で書けないときは、続報（第２報…）で追記。追記がなくなったら（最終）。' },
+  { k: '発生日時', t: 'datetime', g: '発生', req: true },
+  { k: '件名', t: 'text', g: '発生', req: true, tip: '場所・設備＋現象。例：区画25「○○」ホール天井漏水あり（約27文字まで）' },
+  { k: '発生区分', t: 'select', g: '発生', opt: ['故障', '事故', '事件', 'クレーム', 'その他'] },
+  { k: '案件類型', l: '内容', t: 'select', g: '発生', opt: ['機器の故障', '漏水', '排水詰り', '施設の損傷', '停電', '火災', '地震', '風水害', 'その他'] },
+  { k: '職種', t: 'select', g: '発生', opt: ['設備', '清掃', '警備', '駐車場', '客室', '管理人', '受付', '事務', 'その他'] },
+  { k: '発生場所', t: 'text', g: '発生', req: true, tip: '約18文字まで' },
+  { k: '発見者・報告者', l: '発見・通報者', t: 'text', g: '発生', tip: '例：設備員、○○店 店長' },
+  { k: '当事者', t: 'text', g: '当事者・現場対応', tip: '対応した人。例：松塚、田村（約11文字まで）' },
+  { k: '当事者の区分', t: 'select', g: '当事者・現場対応', opt: ['', '【当社の社員】', '【当社のパート】', '【委託先従業員】', '【オーナー】', '【テナント従業員】', '【一般客】', '【周辺住民】', '【業者】'] },
+  { k: '連絡先', t: 'text', g: '当事者・現場対応', tip: '例：防災センター 075-xxx-xxxx' },
+  { k: '現場確認を実施', t: 'bool', g: '当事者・現場対応' },
+  { k: '現場確認開始', t: 'time', g: '当事者・現場対応' },
+  { k: '現場確認終了', t: 'time', g: '当事者・現場対応' },
+  { k: '現場確認の実施者', t: 'text', g: '当事者・現場対応', tip: '約9文字まで' },
+  { k: '現場確認の内容', t: 'text', g: '当事者・現場対応', tip: '例：現場確認（約18文字まで）' },
+  { k: '一次対応を実施', t: 'bool', g: '当事者・現場対応' },
+  { k: '一次対応開始', t: 'time', g: '当事者・現場対応' },
+  { k: '一次対応終了', t: 'time', g: '当事者・現場対応' },
+  { k: '一次対応の実施者', t: 'text', g: '当事者・現場対応', tip: '約9文字まで' },
+  { k: '一次対応の内容', t: 'text', g: '当事者・現場対応', tip: '例：室内機及び室外機ブレーカー切入（約18文字まで）' },
+  { k: '状況概要', l: '最初の状況（対応・処置内容の1行目）', t: 'area', g: '対応・処置内容と原因', req: true, tip: '誰から・どこで・何が。例：○○店長より、客席の天井から漏水していると連絡有り。発生時刻の行に入ります。' },
+  { k: '影響範囲', t: 'area', g: '対応・処置内容と原因', tip: 'テナント営業、給排水、転倒・人身など。' },
+  { k: '恒久対策・今後の予定', l: '今後の予定・提案', t: 'area', g: '対応・処置内容と原因', tip: '対応・処置内容の下の段に入ります。例：修理を提案予定。（2行まで）' },
+  { k: '原因・考察', l: '原因', t: 'area', g: '対応・処置内容と原因', tip: '例：経年使用によるものと思われます。未特定ならその旨と今後の予定。（4行まで）' },
+  { k: '処置報告の区分', t: 'select', g: '処置報告', opt: ['応急処置：', '恒久処置：', '観察中：'] },
+  { k: '応急処置', l: '処置報告の内容', t: 'area', g: '処置報告', tip: '例：バケツとプラベニにて漏水を受ける（1行目約24文字・全部で4行まで）' },
+  { k: '処置の実施者', t: 'text', g: '処置報告' },
+  { k: '処置の確認者', t: 'text', g: '処置報告' },
+  { k: '案件識別番号', t: 'text', g: '記録だけ（報告書には入りません）', un: true },
+  { k: '対象区分', t: 'select', g: '記録だけ（報告書には入りません）', opt: ['', '設備室', '共用部', 'テナント専有部', '外構・通路', 'その他'], un: true },
+  { k: 'オーナー・テナント報告', l: '報告・連絡のメモ（オーナー・テナント）', t: 'area', g: '記録だけ（報告書には入りません）', un: true },
+  { k: '対応業者への連絡', l: '報告・連絡のメモ（対応業者）', t: 'area', g: '記録だけ（報告書には入りません）', un: true },
+  { k: '社内報告', l: '報告・連絡のメモ（社内）', t: 'area', g: '記録だけ（報告書には入りません）', un: true },
+  { k: '報告先・提出状況', t: 'area', g: '記録だけ（報告書には入りません）', un: true },
+  { k: '復旧・完了状況', t: 'select', g: '記録だけ（報告書には入りません）', opt: ['調査中', '応急処置中', '恒久修繕待ち', '復旧済み', '経過観察中', 'その他'], un: true },
 ];
+// 通報・現状報告 (form rows 10-14): how many fit per kind
+const CONTACT_LIMIT = { 'オーナー・テナント': 4, '社内': 2, '対応業者': 2, '関係機関': 3 };
+const MEANS = ['メール', '電話', '口頭', 'FAX', '訪問'];
+const DEPARTMENTS = ['大阪第一事業部', '大阪第二事業部', '百貨店･ハルカス事業部', 'ステーションサービス部', '京都支店', '奈良支店', '三重支店', '中部支店', '東京支店', '工事部', '総務部', '経理部', '人事部', 'ＩＴ･システム部', '監査部', '企画開発室', '業務推進室'];
+const PROFILE_KEY = 'report_profile';
+async function reportProfile() { return (await get('meta', PROFILE_KEY)) || { key: PROFILE_KEY, '部署': '', 'ビル名': '', '報告者': '', '報告者の役職': '', contacts: [] }; }
 
 /* ---------- small helpers ---------- */
 const $ = (s, r = document) => r.querySelector(s);
@@ -551,16 +571,18 @@ async function thumbnail(file) {
 }
 async function newCase(eqId) {
   const day = ymd(), n = await counter('case:' + day), eq = await get('equipment', eqId);
-  const data = Object.fromEntries(CASE_FIELDS.map(f => [f.k, f.t === 'bool' ? false : f.t === 'select' ? f.opt[f.opt[0] === '' ? 0 : (f.k === '案件類型' ? f.opt.length - 1 : 0)] : '']));
+  const data = Object.fromEntries(CASE_FIELDS.map(f => [f.k, f.t === 'bool' ? false : f.t === 'select' ? f.opt[0] : '']));
   data['発生日時'] = localInput();
   data['発生場所'] = eqLocation(eq);
   if (eq) data['件名'] = eq.name + ' ';
-  const c = { id: `CASE-${day}-${pad(n, 4)}`, equipmentId: eq?.id || null, data, selected: [], timeline: [], createdAt: nowIso(), updatedAt: nowIso(), exportedAt: null };
+  const prof = await reportProfile();
+  const c = { id: `CASE-${day}-${pad(n, 4)}`, equipmentId: eq?.id || null, data, selected: [], timeline: [],
+    contacts: (prof.contacts || []).map(x => ({ ...x })), createdAt: nowIso(), updatedAt: nowIso(), exportedAt: null };
   await put('cases', c); return c;
 }
 function caseProblems(c, photos) {
   const p = [];
-  CASE_FIELDS.filter(f => f.req).forEach(f => { if (!String(c.data[f.k] || '').trim()) p.push(`「${f.k}」が空です`); });
+  CASE_FIELDS.filter(f => f.req).forEach(f => { if (!String(c.data[f.k] || '').trim()) p.push(`「${f.l || f.k}」が空です`); });
   if (c.selected.length > MAX_REPORT_PHOTOS) p.push(`報告書の写真は${MAX_REPORT_PHOTOS}枚までです（今は${c.selected.length}枚）`);
   if (c.selected.length && !c.equipmentId) p.push('写真を使うには、対象の設備を選んでください');
   c.selected.forEach((id, i) => {
@@ -572,6 +594,9 @@ function caseProblems(c, photos) {
   const hashes = c.selected.map(id => photos.find(x => x.id === id)?.sha256).filter(Boolean);
   if (new Set(hashes).size !== hashes.length) p.push('まったく同じ画像が2枚以上選ばれています（変換ツールが停止します）');
   if (c.timeline.length > MAX_TIMELINE) p.push(`対応経過は${MAX_TIMELINE}件までです`);
+  const counts = {};
+  (c.contacts || []).forEach((x, i) => { counts[x['区分']] = (counts[x['区分']] || 0) + 1; if (!String(x['相手'] || '').trim()) p.push(`通報・現状報告${i + 1}の「相手」が空です`); });
+  for (const [k, n] of Object.entries(counts)) if (n > (CONTACT_LIMIT[k] || 0)) p.push(`通報・現状報告の「${k}」は様式に${CONTACT_LIMIT[k]}件までです（今は${n}件）`);
   c.timeline.forEach((t, i) => { if (!String(t['実施内容・確認結果'] || '').trim()) p.push(`対応経過${i + 1}の「実施内容・確認結果」が空です`); });
   return p;
 }
@@ -591,6 +616,8 @@ async function buildPackage(c) {
       '写真右側の説明文': ph.caption, '注釈・マーキングの指示': ph.mark || null, '種別': ph.kind, sha256: hash });
   }
   const kase = { ID: c.id, '設備ID': c.equipmentId || null };
+  const prof = await reportProfile();
+  for (const k of ['部署', 'ビル名', '報告者', '報告者の役職']) kase[k] = (prof[k] || '').trim() || null;
   for (const f of CASE_FIELDS) {
     let v = c.data[f.k];
     if (f.t === 'datetime') v = withTz(v); else if (f.t === 'bool') v = !!v; else if (v === '') v = null;
@@ -599,7 +626,8 @@ async function buildPackage(c) {
   const timeline = c.timeline.map(t => ({ ID: t.ID, '対応日時': withTz(t['対応日時']), '担当': t['担当'] || null, '実施内容・確認結果': t['実施内容・確認結果'],
     '測定数値など': t['測定数値など'] || null, '連絡先・連絡結果': t['連絡先・連絡結果'] || null }));
   const pkg = { schema: PKG_SCHEMA, created_at: nowIso(), app: { name: 'HomeBox', version: APP_VERSION }, case: kase,
-    equipment: eq ? { id: eq.id, name: eq.name, category: eq.category, location: eqLocation(eq) } : {}, photos, timeline };
+    equipment: eq ? { id: eq.id, name: eq.name, category: eq.category, location: eqLocation(eq) } : {}, photos, timeline,
+    contacts: (c.contacts || []).map(x => ({ '区分': x['区分'], '手段': x['手段'] || null, '相手': (x['相手'] || '').trim(), '所属': (x['所属'] || '').trim() || null })) };
   return makeZip([{ name: 'package.json', data: JSON.stringify(pkg, null, 2) }, ...files]);
 }
 
@@ -859,9 +887,10 @@ async function viewCase(id) {
   const groups = [...new Set(CASE_FIELDS.map(f => f.g))];
   const input = (f, i) => {
     const v = c.data[f.k] ?? '', id_ = 'cf-' + i, note = f.un ? '<span class="note">報告書には自動転記されません（記録として残ります）</span>' : f.tip ? `<span class="note">${esc(f.tip)}</span>` : '';
-    const head = `${esc(f.k)}${f.req ? ' <span class="req">必須</span>' : ''} ${note}`;
+    const head = `${esc(f.l || f.k)}${f.req ? ' <span class="req">必須</span>' : ''} ${note}`;
     if (f.t === 'bool') return `<label class="field" style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="${id_}" ${v ? 'checked' : ''} style="width:24px;height:24px">${head}</label>`;
-    if (f.t === 'select') return `<label class="field">${head}<select id="${id_}">${f.opt.map(o => `<option value="${esc(o)}" ${v === o ? 'selected' : ''}>${esc(o || '（未選択）')}</option>`).join('')}</select></label>`;
+    // a value from an older version that is not in today's list is kept, not overwritten
+    if (f.t === 'select') { const opts = v && !f.opt.includes(v) ? [...f.opt, v] : f.opt; return `<label class="field">${head}<select id="${id_}">${opts.map(o => `<option value="${esc(o)}" ${v === o ? 'selected' : ''}>${esc(o || '（未選択）')}</option>`).join('')}</select></label>`; }
     if (f.t === 'area') return `<label class="field" style="grid-column:1/-1">${head}<textarea id="${id_}">${esc(v)}</textarea></label>`;
     const type = { datetime: 'datetime-local', time: 'time' }[f.t] || 'text';
     return `<label class="field">${head}<input type="${type}" id="${id_}" value="${esc(v)}"></label>`;
@@ -877,17 +906,20 @@ async function viewCase(id) {
       : emptyBox(c.equipmentId ? 'この設備の写真がまだありません。「この案件で撮る」から撮影してください。' : '先に対象の設備を選ぶと、その設備の写真から選べます。')}
     <div id="captions" style="display:grid;gap:10px"></div>
   </section>
+  <section class="card"><div class="sec-title"><h2 style="font-size:18px">通報・現状報告</h2><div class="row"><button class="btn small" id="ct-std">いつもの連絡先を入れる</button><button class="btn small" id="ct-add">＋ 追加</button></div></div>
+    <p class="muted small">誰に・どの手段で知らせたか。様式にはオーナー・テナント4件、社内2件、対応業者2件、関係機関3件まで入ります。</p><div id="ct" style="display:grid;gap:10px"></div></section>
   <section class="card"><div class="sec-title"><h2 style="font-size:18px">対応経過（${MAX_TIMELINE}件まで）</h2><button class="btn small" id="tl-add">＋ 追加</button></div><div id="tl" style="display:grid;gap:10px"></div></section>
   <section class="card"><h2 style="font-size:18px">報告書にする</h2>
     <div id="probs"></div>
-    <div class="row"><button class="btn primary" id="mkxlsx">この端末で会社様式のExcelを作る</button></div>
+    <div class="row"><button class="btn" id="pv">様式に入るか確認</button><button class="btn primary" id="mkxlsx">この端末で会社様式のExcelを作る</button><button class="btn small" id="follow">続報を作る</button></div>
+    <div id="pvOut"></div>
     <p class="muted small" id="xlsxStatus">承認済みのひな形で、写真の配置から全部品の検査まで、この端末の中で行います。初回は準備に数十秒かかります。</p>
     <div id="xlsxResult"></div>
     ${(c.reports || []).length ? `<details class="more"><summary>これまでに作ったExcel（${c.reports.length}件）</summary><ul class="small">${c.reports.slice(-5).reverse().map(r => `<li>${esc(fmt(r.at))}・${esc(r.name)}・承認 ${esc(r.approvalId)}・${esc(r.seconds)}秒</li>`).join('')}</ul></details>` : ''}
     <div class="row"><button class="btn small" id="export">報告書パッケージを書き出す（Termuxで変換する場合）</button><button class="btn red small" id="delc">案件を削除</button></div>
     <details class="more"><summary>Termuxで変換する場合の手順</summary><ol class="small">
       <li>ダウンロードに <span class="mono">HB-REPORT-${esc(c.id)}.zip</span> ができます。</li>
-      <li>Termux で <span class="mono">bash ~/FS_Phone_Converter_v2_4_2/run_homebox.sh</span> を実行すると、承認済みの会社様式に変換されます。</li>
+      <li>Termux で <span class="mono">bash ~/FS_Phone_Converter_v2_5_0/run_homebox.sh</span> を実行すると、承認済みの会社様式に変換されます。</li>
       <li>完成品は <span class="mono">Download/FS_変換結果</span> に入ります。印刷前に必ず内容を確認してください。</li></ol></details>
     ${c.exportedAt ? `<p class="muted small">前回の書き出し：${esc(fmt(c.exportedAt))}</p>` : ''}</section>`;
   let timer;
@@ -897,13 +929,13 @@ async function viewCase(id) {
     await put('cases', c); $('#saved').textContent = '保存しました ' + fmt(c.updatedAt); showProblems();
   };
   const later = () => { clearTimeout(timer); timer = setTimeout(save, 500); };
-  V().addEventListener('input', e => { if (e.target.closest('#captions') || e.target.closest('#tl')) return; later(); });
+  V().addEventListener('input', e => { if (e.target.closest('#captions') || e.target.closest('#tl') || e.target.closest('#ct')) return; later(); });
   V().addEventListener('change', async e => { if (e.target.id === 'c-eq') {
       const before = c.selected.length; await save();
       const photos = await all('photos');
       c.selected = c.selected.filter(pid => photos.find(x => x.id === pid)?.equipmentId === c.equipmentId);
       if (c.selected.length !== before) { await put('cases', c); toast('別の設備の写真を選択から外しました'); }
-      viewCase(id); } else if (!e.target.closest('#captions') && !e.target.closest('#tl')) later(); });
+      viewCase(id); } else if (!e.target.closest('#captions') && !e.target.closest('#tl') && !e.target.closest('#ct')) later(); });
   const showProblems = async () => { const photos = await all('photos'); const p = caseProblems(c, photos); $('#probs').innerHTML = p.length ? `<div class="problems"><b>書き出す前に直すところ</b><ul>${p.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '<p class="badge ok" style="justify-self:start">書き出せます</p>'; $('#export').disabled = p.length > 0; $('#mkxlsx').disabled = p.length > 0; };
   // photo selection + captions (stored on the photo itself)
   const drawCaptions = async () => {
@@ -981,7 +1013,72 @@ async function viewCase(id) {
     } finally { btn.disabled = false; showProblems(); }
   };
   $('#delc').onclick = async () => { if (await ask('案件を削除しますか？', `<p>${esc(c.id)} ${esc(c.data['件名'])}</p><p class="muted">写真は設備に残ります。案件の入力内容と対応経過は元に戻せません。</p>`, '削除する', true)) { await del('cases', c.id); toast('削除しました'); location.hash = '#cases'; } };
-  drawTl(); drawCaptions(); showProblems();
+  // ---- 通報・現状報告 ----
+  c.contacts ||= [];
+  const drawCt = () => {
+    $('#ct').innerHTML = c.contacts.length ? c.contacts.map((x, i) => `<div class="tl" data-ci="${i}"><div class="row"><b>連絡${i + 1}</b><button class="btn small ghost" data-crm="${i}" style="margin-left:auto">削除</button></div>
+      <div class="grid2"><label class="field">区分<select data-k="区分">${Object.keys(CONTACT_LIMIT).map(k => `<option ${x['区分'] === k ? 'selected' : ''}>${k}</option>`).join('')}</select></label>
+      <label class="field">手段<select data-k="手段">${MEANS.map(k => `<option ${x['手段'] === k ? 'selected' : ''}>${k}</option>`).join('')}</select></label>
+      <label class="field">相手<input type="text" data-k="相手" value="${esc(x['相手'])}" placeholder="例：前田 / 伊地知課長"></label>
+      <label class="field">所属<input type="text" data-k="所属" value="${esc(x['所属'])}" placeholder="例：○○不動産株式会社"></label></div></div>`).join('')
+      : '<p class="muted small">まだありません。「いつもの連絡先を入れる」で、設定の連絡先をまとめて入れられます。</p>';
+  };
+  $('#ct').addEventListener('input', e => { const box = e.target.closest('[data-ci]'); if (!box) return; c.contacts[+box.dataset.ci][e.target.dataset.k] = e.target.value; later(); });
+  $('#ct').addEventListener('change', e => { const box = e.target.closest('[data-ci]'); if (!box) return; c.contacts[+box.dataset.ci][e.target.dataset.k] = e.target.value; later(); });
+  $('#ct').addEventListener('click', async e => { const b = e.target.closest('[data-crm]'); if (!b) return; c.contacts.splice(+b.dataset.crm, 1); await put('cases', c); drawCt(); showProblems(); });
+  $('#ct-add').onclick = async () => { c.contacts.push({ '区分': 'オーナー・テナント', '手段': 'メール', '相手': '', '所属': '' }); await put('cases', c); drawCt(); showProblems(); };
+  $('#ct-std').onclick = async () => {
+    const prof = await reportProfile();
+    if (!(prof.contacts || []).length) return toast('設定の「いつもの連絡先」が空です');
+    const key = x => [x['区分'], x['相手'], x['所属']].join('|');
+    const have = new Set(c.contacts.map(key));
+    prof.contacts.forEach(x => { if (!have.has(key(x))) c.contacts.push({ ...x }); });
+    await put('cases', c); drawCt(); showProblems();
+  };
+  // ---- 様式に入るか確認（the same engine that makes the Excel） ----
+  $('#pv').onclick = async () => {
+    await save();
+    const out = $('#pvOut'), sw = stopwatch(out);
+    try {
+      const payload = await layoutPayload(c);
+      const r = await engine.call('layout', { payload: new TextEncoder().encode(JSON.stringify(payload)) }, st => sw.set(st));
+      sw.stop(); out.innerHTML = renderPreview(r.result);
+    } catch (err) { sw.stop(); out.innerHTML = `<div class="problems"><b>このままでは様式に入りません</b><p>${esc(err.message)}</p></div>`; }
+  };
+  // ---- 続報 ----
+  $('#follow').onclick = async () => {
+    await save();
+    const day = ymd(), n = await counter('case:' + day);
+    const at = STAGES.indexOf(c.data['報告の段階']);
+    const next = { ...JSON.parse(JSON.stringify({ data: c.data, timeline: c.timeline, contacts: c.contacts || [], selected: c.selected })),
+      id: `CASE-${day}-${pad(n, 4)}`, equipmentId: c.equipmentId, parentId: c.id, createdAt: nowIso(), updatedAt: nowIso(), exportedAt: null, reports: [] };
+    next.data['報告の段階'] = STAGES[Math.min(Math.max(at, 0) + 1, 3)];
+    await put('cases', next); toast(`${next.data['報告の段階']}を作りました（${c.id} の続き）`); location.hash = '#case/' + next.id;
+  };
+  drawCt(); drawTl(); drawCaptions(); showProblems();
+}
+async function layoutPayload(c) {
+  const kase = {};
+  for (const f of CASE_FIELDS) { let v = c.data[f.k]; if (f.t === 'datetime') v = withTz(v); else if (f.t === 'bool') v = !!v; else if (v === '') v = null; kase[f.k] = v ?? null; }
+  const prof = await reportProfile();
+  for (const k of ['部署', 'ビル名', '報告者', '報告者の役職']) kase[k] = (prof[k] || '').trim() || null;
+  const photos = [];
+  for (const pid of c.selected) { const ph = await get('photos', pid); if (ph) photos.push({ '撮影場所': ph.place || '', '写真右側の説明文': ph.caption || '', '注釈・マーキングの指示': ph.mark || '' }); }
+  return { case: kase, photos, contacts: c.contacts || [],
+    timeline: c.timeline.map(t => ({ '対応日時': withTz(t['対応日時']), '担当': t['担当'] || null, '実施内容・確認結果': t['実施内容・確認結果'], '測定数値など': t['測定数値など'] || null, '連絡先・連絡結果': t['連絡先・連絡結果'] || null })) };
+}
+function renderPreview(r) {
+  const cell = a => r.cells[a] == null ? '' : esc(r.cells[a]);
+  const rows = [];
+  for (let n = 15; n <= 27; n++) rows.push(`<tr><td class="mono" style="width:4.5em">${cell('C' + n)}</td><td>${cell('G' + n)}</td></tr>`);
+  const cause = [28, 29, 30, 31].map(n => cell('C' + n)).filter(Boolean);
+  const act = ['N32', 'G33', 'G34', 'G35'].map(cell).filter(Boolean);
+  return `<div class="tl"><b>報告書の見え方（下書き）</b>
+    <span class="small">${cell('AB2')}　件名：${cell('G6')}　発生区分：${cell('G3')}　内容：${cell('W3')}</span>
+    <div class="ledger-wrap"><table class="ledger"><tbody><tr><th colspan="2">対応・処置内容（1行＝様式の1行）</th></tr>${rows.join('')}
+    <tr><th colspan="2">原因</th></tr>${cause.map(x => `<tr><td colspan="2">${x}</td></tr>`).join('') || '<tr><td colspan="2" class="muted">（空）</td></tr>'}
+    <tr><th colspan="2">処置報告　${cell('G32')}</th></tr>${act.map(x => `<tr><td colspan="2">${x}</td></tr>`).join('') || '<tr><td colspan="2" class="muted">（空）</td></tr>'}</tbody></table></div>
+    ${r.warnings.length ? `<ul class="small" style="color:var(--stamp)">${r.warnings.map(w => `<li>${esc(w)}</li>`).join('')}</ul>` : '<span class="badge ok" style="justify-self:start">様式に収まります</span>'}</div>`;
 }
 
 /* ---------- configurable ledger schema (v0.1.3) ---------- */
@@ -1102,6 +1199,13 @@ async function viewSettings() {
     <dl class="kv"><dt>保存場所</dt><dd>この端末のブラウザの中だけ。業務データを外部へ送る処理はありません（アプリの更新確認のため、開いたときに配信元へ接続します）</dd>
     <dt>消されにくい設定</dt><dd>${persisted ? '<span class="badge ok">有効</span>' : '<span class="badge todo">未設定</span> <button class="btn small" id="persist">有効にする</button>'}</dd>
     <dt>使用量</dt><dd>${est ? (est.usage / 1048576).toFixed(1) + ' MB' : '不明'}</dd><dt>版</dt><dd>${APP_VERSION}</dd></dl></section>
+  <section class="card"><h2 style="font-size:18px">報告者情報（報告書の右上）</h2>
+    <div class="grid2"><label class="field">部署<input type="text" id="pf-dept" list="pf-depts"><datalist id="pf-depts">${DEPARTMENTS.map(d => `<option value="${esc(d)}">`).join('')}</datalist></label>
+    <label class="field">ビル名<input type="text" id="pf-bldg"></label>
+    <label class="field">報告者<input type="text" id="pf-name"></label>
+    <label class="field">役職<select id="pf-role"><option value="">（未選択）</option><option>主任</option><option>班長</option><option>その他</option></select></label></div>
+    <h3 style="font-size:16px">いつもの連絡先（案件を作ると自動で入ります）</h3><div id="pf-ct" style="display:grid;gap:8px"></div>
+    <div class="row"><button class="btn small" id="pf-add">＋ 連絡先を追加</button><button class="btn primary small" id="pf-save">保存</button></div></section>
   <section class="card"><h2 style="font-size:18px">会社様式（承認済みひな形）</h2>
     <div id="tplState" class="small"></div>
     <p class="muted small">管理者から受け取った<b>空白ひな形（.xlsx）</b>と<b>承認済み一覧（.approved.json）</b>の2つを登録します。署名・原本のハッシュ・変換ツールの版を、この端末の中で照合します。</p>
@@ -1125,6 +1229,23 @@ async function viewSettings() {
   <section class="card"><h2 style="font-size:18px">全データを消す</h2><p class="muted small">先にバックアップを書き出してください。</p><button class="btn red" id="wipe">この端末のデータをすべて消す</button></section>`;
   renderFieldEditor();
   $('#persist')?.addEventListener('click', async () => { const ok = await navigator.storage.persist(); toast(ok ? '有効にしました' : 'ブラウザに許可されませんでした（ホーム画面に追加すると通りやすくなります）'); viewSettings(); });
+  const prof = await reportProfile();
+  $('#pf-dept').value = prof['部署'] || ''; $('#pf-bldg').value = prof['ビル名'] || ''; $('#pf-name').value = prof['報告者'] || ''; $('#pf-role').value = prof['報告者の役職'] || '';
+  const pfc = (prof.contacts || []).map(x => ({ ...x }));
+  const drawPf = () => { $('#pf-ct').innerHTML = pfc.map((x, i) => `<div class="row" data-pi="${i}"><select data-k="区分" aria-label="区分">${Object.keys(CONTACT_LIMIT).map(k => `<option ${x['区分'] === k ? 'selected' : ''}>${k}</option>`).join('')}</select>
+    <select data-k="手段" aria-label="手段">${MEANS.map(k => `<option ${x['手段'] === k ? 'selected' : ''}>${k}</option>`).join('')}</select>
+    <input type="text" data-k="相手" value="${esc(x['相手'])}" placeholder="相手" aria-label="相手" style="width:auto;flex:1 1 7em"><input type="text" data-k="所属" value="${esc(x['所属'])}" placeholder="所属" aria-label="所属" style="width:auto;flex:1 1 9em">
+    <button class="btn small ghost" data-prm="${i}">削除</button></div>`).join('') || '<p class="muted small">まだありません。</p>'; };
+  drawPf();
+  $('#pf-ct').addEventListener('input', e => { const r = e.target.closest('[data-pi]'); if (r) pfc[+r.dataset.pi][e.target.dataset.k] = e.target.value; });
+  $('#pf-ct').addEventListener('change', e => { const r = e.target.closest('[data-pi]'); if (r) pfc[+r.dataset.pi][e.target.dataset.k] = e.target.value; });
+  $('#pf-ct').addEventListener('click', e => { const b = e.target.closest('[data-prm]'); if (b) { pfc.splice(+b.dataset.prm, 1); drawPf(); } });
+  $('#pf-add').onclick = () => { pfc.push({ '区分': 'オーナー・テナント', '手段': 'メール', '相手': '', '所属': '' }); drawPf(); };
+  $('#pf-save').onclick = async () => {
+    await put('meta', { key: PROFILE_KEY, '部署': $('#pf-dept').value.trim(), 'ビル名': $('#pf-bldg').value.trim(), '報告者': $('#pf-name').value.trim(),
+      '報告者の役職': $('#pf-role').value, contacts: pfc.filter(x => (x['相手'] || '').trim()) });
+    toast('報告者情報を保存しました');
+  };
   const drawTpl = async () => {
     const t = await templateRecord();
     $('#tplState').innerHTML = t ? `<span class="badge ok">登録済み</span> ${esc(t.name)}<br>承認 ${esc(t.approvalId)}（${esc(t.approver)}、${esc(fmt(t.approvedAt))}）${t.validUntil ? '・有効期限 ' + esc(fmt(t.validUntil)) : ''}<br><span class="mono">SHA-256 ${esc(t.sha256.slice(0, 16))}…</span>`

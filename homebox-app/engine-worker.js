@@ -4,7 +4,7 @@
 // only reads files served by the HomeBox origin and the bytes the page passes in.
 'use strict';
 const PYODIDE_DIR = './pyodide/0.27.7/';
-const ENGINE_FILES = ['engine_policy.py', 'approval.py', 'converter_mobile.py', 'homebox_adapter.py', 'case_exports.py'];
+const ENGINE_FILES = ['engine_policy.py', 'approval.py', 'report_layout.py', 'converter_mobile.py', 'homebox_adapter.py', 'case_exports.py'];
 importScripts(PYODIDE_DIR + 'pyodide.js');
 
 let bootPromise = null;
@@ -35,7 +35,7 @@ function boot(id) {
     await py.runPythonAsync(`
 import sys
 sys.path.insert(0, '/engine')
-import converter_mobile, approval, homebox_adapter, case_exports, engine_policy
+import converter_mobile, approval, homebox_adapter, case_exports, engine_policy, report_layout
 `);
     t.engine = ms();
     return { py, t };
@@ -65,6 +65,20 @@ onmessage = async (e) => {
   try {
     const { py, t } = await boot(id);
     if (cmd === 'warm') return post(id, 'done', { result: { timings: t, version: py.runPython('converter_mobile.VERSION') } });
+    if (cmd === 'layout') {
+      // The same layout the Excel gets, without a template: for the "様式に入るか確認" preview.
+      post(id, 'progress', { stage: '様式に当てはめています' });
+      resetWork(py);
+      py.FS.writeFile('/work/layout.json', e.data.payload);
+      const json = await py.runPythonAsync(`
+import json, converter_mobile as CM
+d = json.load(open('/work/layout.json', encoding='utf-8'))
+case = dict(d['case'], _contacts=d.get('contacts') or [])
+r, p, w = CM.build_updates_with_notes(case, d.get('photos') or [], d.get('timeline') or [])
+json.dumps({'cells': {k: (v if isinstance(v, str) else None) for k, v in r.items()}, 'warnings': w}, ensure_ascii=False)
+`);
+      return post(id, 'done', { result: JSON.parse(json) });
+    }
     resetWork(py);
     py.FS.writeFile('/work/template.xlsx', e.data.template);
     py.FS.writeFile('/work/approved.json', e.data.manifest);

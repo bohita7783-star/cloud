@@ -3,13 +3,13 @@
 // cache never serves HomeBox files once this is installed.
 // NOTE: this separates CACHING only. IndexedDB is shared by every page of the same
 // origin, so for business use host HomeBox on its own origin (see ARCHITECTURE.md).
-const CACHE = 'homebox-v0.2.0';
+const CACHE = 'homebox-v0.3.0';
 // Pyodide (about 19 MB) lives in its own cache named after its version, so app
 // updates do not download it again. Files under ./pyodide/<version>/ never change.
 const PYODIDE_CACHE = 'homebox-pyodide-0.27.7';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png',
   './engine-worker.js', './engine/engine_policy.py', './engine/approval.py', './engine/converter_mobile.py',
-  './engine/homebox_adapter.py', './engine/case_exports.py', './trusted_approvers.json'];
+  './engine/homebox_adapter.py', './engine/case_exports.py', './engine/report_layout.py', './trusted_approvers.json'];
 
 self.addEventListener('install', e => e.waitUntil(
   caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting())));

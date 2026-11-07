@@ -1,6 +1,6 @@
 {
   "status": "TEST_DRAFT_NOT_APPROVED",
-  "version": "2.4.2-homebox-preview",
+  "version": "2.5.0-layout-preview",
   "project_case_id": "ID_B",
   "project_title": "CASE_B_VISIBLE_20261107",
   "photo_count": 1,
@@ -29,9 +29,9 @@
     }
   ],
   "source_hashes_sha256": {
-    "synthetic_field_survey.xlsx": "44803a54d45d11df60a8485c1d82346e2d248d988461a0863f0b3d87b3f2d421",
-    "synthetic_photos.zip": "abee282a20e59298eca8337dfbb7d44e07f18c57ad9b40b01db995977d826971",
-    "synthetic_blank_template.xlsx": "84c1ff0d80830b6ab68bba87514739570ac11497acc281cf3c2cbd025a4a6d1e"
+    "synthetic_field_survey.xlsx": "a259123e9dc1f227b277fcc9baf8a723eea6b4cee4a58fcdd6282071f75f2b84",
+    "synthetic_photos.zip": "f67cedaca9a65f246dda434d0d5ce61792b88561f42c886c9344da365b36ffd9",
+    "synthetic_blank_template.xlsx": "0065aff3982c625af951215e94d01719d8e3c102720bbf57a068d42c8623c17d"
   },
   "selected_photo_row_ids": [
     "P_B"
@@ -87,7 +87,7 @@
     "removed_old_markings": 3,
     "removed_unused_photo_anchors": 2,
     "part_verification": {
-      "approval_id": "APV-20261107-9cc11e4a",
+      "approval_id": "APV-20261107-f18346a4",
       "immutable_parts_byte_identical": 11,
       "modifiable_parts_checked": [
         "[Content_Types].xml",
@@ -108,38 +108,40 @@
         "xl/media/image3.jpeg"
       ],
       "added_parts": [],
-      "changed_cells_report": 27,
-      "changed_cells_photo": 6,
+      "changed_cells_report": 25,
+      "changed_cells_photo": 4,
       "blanked_shared_strings": 7,
       "photos_checked": 1,
       "legacy_markers_checked": 10
     }
   },
+  "layout_version": "genba-ijou-sokuho-2026-10-17/layout-2.5.0",
+  "layout_warnings": [],
   "approval": {
-    "approval_id": "APV-20261107-9cc11e4a",
+    "approval_id": "APV-20261107-f18346a4",
     "approver": "サンプル承認者（架空）",
-    "approver_key_id": "ed25519:821f8918eb13146c",
-    "approved_at": "2026-11-07T03:40:25Z",
-    "valid_until": "2027-11-07T03:40:25Z"
+    "approver_key_id": "ed25519:6d3174e26e4c7f69",
+    "approved_at": "2026-11-07T06:15:26Z",
+    "valid_until": "2027-11-07T06:15:26Z"
   },
   "approval_manifest": {
     "file": "approval_manifest.approved_sample.json",
-    "sha256": "b0c54cfff598e41e7f72d8b475663ea18855c38bb5dcce3903e3940b07c29e44",
-    "template_sha256": "84c1ff0d80830b6ab68bba87514739570ac11497acc281cf3c2cbd025a4a6d1e",
-    "trusted_keys_sha256": "a73ad975e64b282a90af4bf34ba255026b61125fb8e16336c92c8a73d818bcc6"
+    "sha256": "f7bd5b1aa52aacdce359b6e956de978113080fb3eaaeed9150d14e74ab21e1f2",
+    "template_sha256": "0065aff3982c625af951215e94d01719d8e3c102720bbf57a068d42c8623c17d",
+    "trusted_keys_sha256": "d849892e5acfe34d1616ec3786ec564c34d955b88bcb00ecee348f9e489c32d6"
   },
   "program": {
-    "version": "2.4.2-homebox-preview",
-    "engine_policy_version": "report-2026-10-17/engine-2.3.4",
+    "version": "2.5.0-layout-preview",
+    "engine_policy_version": "report-2026-10-17/engine-2.5.0",
     "file_sha256": {
-      "converter_mobile.py": "e87c7a55b84e2e8878ff79cf518523c91b9cf5cf5b62df3c5d83255eeadb6311",
+      "converter_mobile.py": "42cf9bd2f433a239842f1aa5596e163d7906d127d951114bc7e4bc6f40d8355f",
       "approval.py": "145c97e6f9743ce5cdbf26ba363872fd7b671b5cae4e1833f5fca5103c797ded",
-      "engine_policy.py": "07f63e1e534eda6590fd9f87805e8a12333899011ab9c15b9eb25c2abad8990a",
+      "engine_policy.py": "16de41b8bc995e567fde88d86888271b1cbbfe4a6f71b285a6b087800202fbe6",
       "case_exports.py": "5ed6b105d799afdd6b7263fb413a1ac9d76f7f886a7d6798f2fda055710d9a4c"
     }
   },
   "part_verification": {
-    "approval_id": "APV-20261107-9cc11e4a",
+    "approval_id": "APV-20261107-f18346a4",
     "immutable_parts_byte_identical": 11,
     "modifiable_parts_checked": [
       "[Content_Types].xml",
@@ -160,8 +162,8 @@
       "xl/media/image3.jpeg"
     ],
     "added_parts": [],
-    "changed_cells_report": 27,
-    "changed_cells_photo": 6,
+    "changed_cells_report": 25,
+    "changed_cells_photo": 4,
     "blanked_shared_strings": 7,
     "photos_checked": 1,
     "legacy_markers_checked": 10

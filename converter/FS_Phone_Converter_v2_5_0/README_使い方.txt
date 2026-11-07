@@ -1,7 +1,7 @@
 【2.4.0〜で追加：ホームボックスからの変換】
 ・ホームボックスの異常案件で「報告書パッケージを書き出す」を押すと、Download に
   HB-REPORT-<案件ID>.zip ができます。
-・Termux で：bash ~/FS_Phone_Converter_v2_4_2/run_homebox.sh
+・Termux で：bash ~/FS_Phone_Converter_v2_5_0/run_homebox.sh
   → 最新のパッケージを、承認済みひな形で会社様式に変換し、Download/FS_変換結果 に保存。
 ・Field Survey からの変換（run_ui.sh / run.sh）も従来どおり使えます。
 ・v2.3.3 で署名した承認済み一覧（approvals/）と trusted_approvers.json は、そのまま使えます。
@@ -26,7 +26,7 @@
 承認済みの空白様式と情報管理方針が確定するまで、実業務の報告書は作成できません。
 この版は既存の会社原本で動くことを保証していません。
 
-Field Survey → 会社Excel 写真帳変換ツール v2.4.2-homebox-preview（件名ファイル名対応・検証版）
+Field Survey → 会社Excel 写真帳変換ツール v2.5.0-layout-preview（件名ファイル名対応・検証版）
 ============================================================
 重要：Field Surveyアプリそのものを改造したものではありません。
       Field Surveyが最初に書き出すXLSX/ZIPの元ファイル名は変更できません。
@@ -57,18 +57,18 @@ Field Survey → 会社Excel 写真帳変換ツール v2.4.2-homebox-preview（�
 1. ZIPをPixel 9aのDownloadへダウンロード。
 2. Termuxに以下のコマンドを一行ずつ入力：
    cd ~
-   unzip -o ~/storage/downloads/field_survey_converter_v2_4_2_homebox_preview.zip
+   unzip -o ~/storage/downloads/field_survey_converter_v2_5_0_layout_preview.zip
    # 旧社内ひな形をコピーしないでください（このプレビューでは実会社資料を使用禁止）
    ※架空のテスト用ひな形だけを使ってください。
    ※事前に会社が許可した社内Excelファイルだけを使用する。
 3. 実行：
-   bash ~/FS_Phone_Converter_v2_4_2/run_ui.sh
+   bash ~/FS_Phone_Converter_v2_5_0/run_ui.sh
    ブラウザが開く（開かない時はTermuxに表示された http://127.0.0.1:... へ）。
    XLSX＋元写真ZIPを選択→件名で案件選択→写真を確認→変換。
 4. 完成品の保存先：Androidの Download / FS_変換結果
 
 【文字だけで実行したい場合】
-   bash ~/FS_Phone_Converter_v2_4_2/run.sh
+   bash ~/FS_Phone_Converter_v2_5_0/run.sh
    まずExcel＋写真ZIPを選択、次に案件の件名を見ながら番号選択。
    終了後に案件別元データと会社書式Excelが同じフォルダーへ保存される。
 
@@ -84,7 +84,7 @@ Field Survey → 会社Excel 写真帳変換ツール v2.4.2-homebox-preview（�
 ・Field Surveyアプリ標準のエクスポートボタンと、アプリ内部のファイル名は変わらない。
 ・会社書式は2026年10月17日の特定の原本だけ。対応写真は最大3枚。
 ・写真入り会社書式Excelは検証用であり正式提出用ではない。
-・PixelのAndroid実機上でv2.4.2-homebox-previewが動作したかは、ユーザー側で追加確認が必要。
+・PixelのAndroid実機上でv2.5.0-layout-previewが動作したかは、ユーザー側で追加確認が必要。
 ・PC版Excelでの印刷・改ページ・図形表示は引き続き目視検証が必要。
 ・案件別元Excel/ZIPは元データのコピーで、ブラウザ編集後の内容は反映しない。
 ・元写真ZIPに写真が欠けている場合、会社Excel生成に成功しても案件別コピーが生成できない場合がある。

@@ -1,11 +1,11 @@
 {
   "schema": "fs-converter-approval/1",
-  "status": "approved",
+  "status": "pending",
   "layout_id": "genba-ijou-sokuho-2026-10-17",
-  "engine_policy_version": "report-2026-10-17/engine-2.3.4",
+  "engine_policy_version": "report-2026-10-17/engine-2.5.0",
   "template": {
     "file_name": "synthetic_blank_template.xlsx",
-    "sha256": "84c1ff0d80830b6ab68bba87514739570ac11497acc281cf3c2cbd025a4a6d1e",
+    "sha256": "0065aff3982c625af951215e94d01719d8e3c102720bbf57a068d42c8623c17d",
     "size": 15158
   },
   "parts": [
@@ -248,8 +248,8 @@
     }
   ],
   "inspection": {
-    "inspector_version": "2.4.2-homebox-preview",
-    "inspected_at": "2026-11-07T03:40:25Z",
+    "inspector_version": "2.5.0-layout-preview",
+    "inspected_at": "2026-11-07T06:15:26Z",
     "sheets": [
       {
         "name": "報告書",
@@ -293,18 +293,5 @@
       "media_other_than_photo_slots": 1
     },
     "blockers": []
-  },
-  "approval": {
-    "approval_id": "APV-20261107-9cc11e4a",
-    "approver": "サンプル承認者（架空）",
-    "approver_key_id": "ed25519:821f8918eb13146c",
-    "approved_at": "2026-11-07T03:40:25Z",
-    "valid_until": "2027-11-07T03:40:25Z",
-    "review_statement": "承認者は、このひな形をExcelで開き、全シート（非表示を含む）、コメント、外部リンクの参照先、名前の定義、図形・画像・EMF、チェックボックス、文書情報を確認し、過去の案件の情報や不要な個人情報が含まれていないことを確認した。"
-  },
-  "signature": {
-    "alg": "Ed25519",
-    "key_id": "ed25519:821f8918eb13146c",
-    "value": "0FGjAiPAn46iD411+aRUSveDplg3Uv9Uevz99t3bBs1hgzE1q6LjsgWLC2YxazvJ2ZMmZRXqSyeuUeLfdRASBw=="
   }
 }

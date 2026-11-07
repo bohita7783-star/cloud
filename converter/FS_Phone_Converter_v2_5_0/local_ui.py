@@ -37,7 +37,7 @@ a{color:#234d89}button:disabled{opacity:.6}.photo{display:grid;grid-template-col
 def format_page(body,title='写真帳変換'):
     return ('<!doctype html><html lang="ja"><meta name="viewport" content="width=device-width,initial-scale=1">'
         '<meta charset="UTF-8"><title>'+esc(title)+'</title><style>'+CSS+'</style><main>'
-        '<h1>現場異常報告書 変換・編集（v2.4.2-homebox-preview 検証版）</h1>'
+        '<h1>現場異常報告書 変換・編集（v2.5.0-layout-preview 検証版）</h1>'
         '<div class="warning">これはField Survey本体の記録を変更しません。会社提出前に内容・写真・印刷結果を必ず確認してください。</div>'
         +body+'</main></html>')
 
@@ -223,7 +223,7 @@ def main():
     if not TEMPLATE.is_file():sys.exit('会社原本 company_template.xlsx がありません。管理者が承認したひな形と approvals/ の承認済み一覧を置いてください（承認手順書_管理者向け.md）。')
     server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
     url=f'http://127.0.0.1:{server.server_address[1]}/?token={TOKEN}'
-    print('=== ブラウザで写真帳編集・件名保存 v2.4.2-homebox-preview ===',flush=True)
+    print('=== ブラウザで写真帳編集・件名保存 v2.5.0-layout-preview ===',flush=True)
     print('アドレス:',url,'\n終了するときはCTRL+C。',flush=True)
     opener=shutil.which('termux-open-url')
     if opener:

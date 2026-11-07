@@ -44,7 +44,7 @@ const secs = t0 => ((Date.now() - t0) / 1000).toFixed(1);
   await p.goto(base + '#eq/' + eqId); await p.click('#mkcase'); await p.waitForSelector('#mkxlsx');
   const caseHash = await p.evaluate(() => location.hash);
   const field = l => p.locator('label.field', { hasText: l }).locator('input,textarea,select').first();
-  await field('件名').fill('架空 熱源水ポンプ 異音'); await field('状況概要').fill('架空：軸受付近から異音。');
+  await field('件名').fill('架空 熱源水ポンプ 異音'); await field('最初の状況').fill('架空：軸受付近から異音。');
   await field('発生場所').fill('架空ビル B1 機械室');
   await p.locator('#pool .ph').first().click(); await p.waitForSelector('#captions textarea');
   await p.locator('#captions textarea').first().fill('架空：銘板を確認。');

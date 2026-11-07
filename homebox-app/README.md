@@ -1,4 +1,6 @@
-# ホームボックス v0.2.0（この端末で会社様式のExcelまで作れる）
+# ホームボックス v0.3.0（会社の報告書と同じ書き方でExcelを作る）
+
+> **v0.3.0：** 実際の現場異常速報と同じ欄・同じ書き方で出力（報告の段階、通報・現状報告、時系列の折り返し、原因・処置報告）。「様式に入るか確認」「続報を作る」、報告者情報といつもの連絡先。変換エンジン 2.5.0。承認済み一覧は再署名が必要。詳しくは [CHANGES_0_3_0.md](CHANGES_0_3_0.md)。
 
 > **v0.2.0：** 案件画面の「この端末で会社様式のExcelを作る」で、Termuxを使わずにExcelを作成。変換ツール v2.4.2 と同じ処理・同じ承認検査をアプリ内（Pyodide）で実行。詳しくは [CHANGES_0_2_0.md](CHANGES_0_2_0.md)。
 
@@ -8,7 +10,7 @@
 - 台帳の正本は会社の台帳。ここは現場用の写しと確認結果の候補。
 - デザインは `homebox-lp/`（LP v0.1.1）を基準にしている。
 - 全体構成・受け入れ条件は [ARCHITECTURE.md](ARCHITECTURE.md)、変換ツールとの受け渡し形式は [DATA_CONTRACT.md](DATA_CONTRACT.md)。
-- 会社様式のExcelは、設定で承認済みひな形を登録すれば**アプリ内で作れる**（v0.2.0）。Termuxで変換する場合は変換ツール v2.4.2 以降。
+- 会社様式のExcelは、設定で承認済みひな形を登録すれば**アプリ内で作れる**（v0.2.0）。Termuxで変換する場合は変換ツール v2.5.0 以降。
 
 ## Pixel で使う
 
@@ -72,6 +74,8 @@ node homebox-app/tests/e2e_app.js http://127.0.0.1:8765/homebox-app/ <出力フ�
 
 ### テスト（v0.2.0 で追加）
 
+- `node tests/e2e_report_layout.js <URL> <出力> <ひな形> <承認一覧> <写真> <写真2>`：報告者情報・いつもの連絡先・様式の欄・「様式に入るか確認」・枠の上限・Excel作成・続報（v0.3.0）。
+
 - `python tests/check_engine_sync.py [変換ツールのフォルダー]`：アプリ内の変換エンジンが変換ツールのリリースと同一か。
 - `node tests/e2e_excel.js <URL> <出力> <ひな形> <承認一覧> <改ざんした承認一覧> <写真>`：登録→Excel作成→機内モードで再作成。テスト用の鍵を入れた `trusted_approvers.json` を置いた**複製**で実行する。
 
@@ -82,4 +86,4 @@ node homebox-app/tests/e2e_app.js http://127.0.0.1:8765/homebox-app/ <出力フ�
 - `node tests/e2e_schema.js <URL> <出力フォルダー>`：**実際のChromiumのIndexedDB**で、項目の追加〜非表示〜復元、旧名CSV、正式17項目の固定、v0.1.3からの移行、バックアップを確認（v0.1.4）。
 - `python tests/test_dynamic_ui_mock.py`：Chromiumを使う画面操作の**模擬テスト**。実IndexedDBではなく一時的な保存APIモックを使用（Playwright/PythonとChromiumが必要）。
 
-**変換ツールはv2.4.2以降**を使用。変更するのは設備台帳の項目定義であり、報告書パッケージ `hb-report-package/1` や会社様式Excelの許可変更範囲は変更しません。
+**変換ツールはv2.5.0以降**を使用（パッケージは `hb-report-package/2`）。台帳の項目定義の変更は、報告書パッケージや会社様式Excelの許可変更範囲は変更しません。

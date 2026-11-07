@@ -97,7 +97,7 @@ class TestConverter(unittest.TestCase):
     def workbook(self,**kwargs):return make_workbook(Path(self.td.name)/'test.xlsx',**kwargs)
 
     def test_version_unique(self):
-        self.assertEqual(VERSION,'2.4.2-homebox-preview')
+        self.assertEqual(VERSION,'2.5.0-layout-preview')
 
     def test_34th_column_preserved(self):
         b=self.workbook(extra_col=True)
@@ -130,7 +130,7 @@ class TestConverter(unittest.TestCase):
         case={'件名':'架空故障','発生日時':'2026-11-07T01:00:00Z','発生場所':'架空室',
           '現場確認を実施':'FALSE','一次対応を実施':'TRUE'}
         rep,_=build_updates(case,[],[])
-        self.assertIsNone(rep['G8'])
+        self.assertEqual(rep['G8'],'無')   # 2.5.0: the form shows 有/無, as completed reports do
         self.assertEqual(rep['G9'],'有')
 
     def test_mixed_and_missing_timeline_dates(self):
@@ -138,8 +138,10 @@ class TestConverter(unittest.TestCase):
         times=[{'対応日時':None,'実施内容・確認結果':'日時未設定'},
             {'対応日時':'2026-11-07T10:30:00+09:00','実施内容・確認結果':'日時あり'}]
         rep,_=build_updates(case,[],times)
-        self.assertEqual(rep['G17'],'日時あり')
-        self.assertEqual(rep['G18'],'日時未設定')
+        # 2.5.0: chronology starts at row 15; timed entries first, untimed last
+        self.assertEqual((rep['C15'],rep['G15']),('10：30','日時あり'))
+        self.assertEqual(rep['G16'],'日時未設定')
+        self.assertNotIn('C16',rep)
 
     def test_case_specific_excel_no_hidden_other_case(self):
         b=self.workbook(extra_col=True)

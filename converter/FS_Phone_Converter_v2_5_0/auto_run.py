@@ -205,7 +205,7 @@ def run_conversion(field,photos,stamp):
         return 1
 
 def main():
-    print('=== Field Survey → 会社書式 v2.4.2-homebox-preview（件名ファイル名・複数案件・写真選択）/ 変換エンジン '+VERSION+' ===')
+    print('=== Field Survey → 会社書式 v2.5.0-layout-preview（件名ファイル名・複数案件・写真選択）/ 変換エンジン '+VERSION+' ===')
     print('※試作・正式提出不可。社内資料は会社の許可がある場合のみ利用。')
     if not TEMPLATE.is_file():
         print('会社原本がありません:',TEMPLATE)

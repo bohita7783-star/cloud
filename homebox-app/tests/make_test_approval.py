@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-CONV = ROOT / 'converter' / 'FS_Phone_Converter_v2_4_2'
+CONV = ROOT / 'converter' / 'FS_Phone_Converter_v2_5_0'
 sys.path[:0] = [str(CONV), str(CONV / 'tests')]
 
 from PIL import Image
