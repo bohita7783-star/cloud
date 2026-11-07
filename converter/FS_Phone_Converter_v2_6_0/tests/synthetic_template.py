@@ -8,9 +8,14 @@ The cleared cells contain clearly fake "旧案件_" text so residue checks have
 something to look for.
 """
 import io
+import sys
 import zipfile
+from pathlib import Path
 from lxml import etree as ET
 from PIL import Image
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import form_profile as FP  # noqa: E402  (box positions of the 2026-10 form: structure only)
 
 S = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
 R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
@@ -68,6 +73,33 @@ def _sheet(cells, shared, extra=()):
     return ws
 
 
+def photo_merges(third_slot='2026-10-17'):
+    """Merged ranges of the photo sheet: title, date, 3 slots (No., number, 5 caption lines)."""
+    refs = ['B1:O2', 'P3:S3']
+    for top, bottom in ((5, 21), (24, 40), (43, 58)):
+        refs += [f'B{top}:L{bottom}', f'N{top}:O{top + 1}', f'P{top}:S{top + 1}']
+        if top == 43 and third_slot == '2026-10-17':
+            caps = [(45, 46), (47, 49), (50, 52), (53, 55), (56, 58)]
+        else:
+            caps = [(r, r + 2) for r in range(top + 2, bottom, 3)]
+        refs += [f'N{a}:S{min(b, bottom)}' for a, b in caps]
+    return refs
+
+
+def _merges(sheet, refs):
+    m = ET.SubElement(sheet, '{%s}mergeCells' % S, count=str(len(refs)))
+    for ref in refs:
+        ET.SubElement(m, '{%s}mergeCell' % S, ref=ref)
+
+
+def bare_form_sheet(which):
+    """An empty worksheet that has only the boxes of the 2026-10 form (report or photo sheet)."""
+    ws = ET.Element('{%s}worksheet' % S, nsmap={None: S, 'r': R})
+    ET.SubElement(ws, '{%s}sheetData' % S)
+    _merges(ws, sorted(set(FP.REPORT_MERGES.values())) if which == 'report' else photo_merges('2026-10-17'))
+    return ws
+
+
 def build_template_parts(variant=''):
     """Return {part name: bytes}. `variant` changes static text to make a different template."""
     shared = []
@@ -77,14 +109,14 @@ def build_template_parts(variant=''):
     report_cells['AU1'] = 46300
     report_cells['B60'] = ('SUM(1,2)', 3)
     sheet1 = _sheet(report_cells, shared)
-    merge = ET.SubElement(sheet1, '{%s}mergeCells' % S, count='1')
-    ET.SubElement(merge, '{%s}mergeCell' % S, ref='A1:F1')
+    _merges(sheet1, ['A1:F1'] + sorted(set(FP.REPORT_MERGES.values())))
     ET.SubElement(sheet1, '{%s}pageMargins' % S, left='0.7', right='0.7', top='0.75', bottom='0.75', header='0.3', footer='0.3')
     ET.SubElement(sheet1, '{%s}drawing' % S, {'{%s}id' % R: 'rId1'})
     ET.SubElement(sheet1, '{%s}legacyDrawing' % S, {'{%s}id' % R: 'rId2'})
     photo_cells = {'A1': '写真帳'}
     photo_cells.update(LEGACY_PHOTO)
     sheet2 = _sheet(photo_cells, shared)
+    _merges(sheet2, photo_merges('2026-10-17'))
     ET.SubElement(sheet2, '{%s}drawing' % S, {'{%s}id' % R: 'rId1'})
     sheet3 = _sheet({f'A{i}': t for i, t in enumerate(AUX_TEXT, 1)}, shared)
 
@@ -117,15 +149,23 @@ def build_template_parts(variant=''):
     s2rels = ET.Element('{%s}Relationships' % P, nsmap={None: P})
     ET.SubElement(s2rels, '{%s}Relationship' % P, Id='rId1', Type=R + '/drawing', Target='../drawings/drawing2.xml')
 
+    def anchor_at(dr, row):
+        anchor = ET.SubElement(dr, '{%s}twoCellAnchor' % X)
+        frm = ET.SubElement(anchor, '{%s}from' % X)
+        for tag, val in (('col', 1), ('colOff', 0), ('row', row), ('rowOff', 0)):
+            ET.SubElement(frm, '{%s}%s' % (X, tag)).text = str(val)
+        to = ET.SubElement(anchor, '{%s}to' % X)
+        for tag, val in (('col', 11), ('colOff', 0), ('row', row + 15), ('rowOff', 0)):
+            ET.SubElement(to, '{%s}%s' % (X, tag)).text = str(val)
+        return anchor
+
     def drawing(pics, shapes):
         dr = ET.Element('{%s}wsDr' % X, nsmap={'xdr': X, 'a': A, 'r': R})
-        for rid in pics:
-            anchor = ET.SubElement(dr, '{%s}twoCellAnchor' % X)
-            pic = ET.SubElement(anchor, '{%s}pic' % X)
+        for rid, row in zip(pics, (4, 23, 42)):
+            pic = ET.SubElement(anchor_at(dr, row), '{%s}pic' % X)
             ET.SubElement(ET.SubElement(pic, '{%s}blipFill' % X), '{%s}blip' % A, {'{%s}embed' % R: rid})
             if shapes:
-                mark = ET.SubElement(dr, '{%s}twoCellAnchor' % X)
-                ET.SubElement(mark, '{%s}sp' % X)
+                ET.SubElement(anchor_at(dr, row + 2), '{%s}sp' % X)
         return dr
     d1 = drawing(['rId1'], False)
     d1rels = ET.Element('{%s}Relationships' % P, nsmap={None: P})
@@ -183,6 +223,84 @@ def build_template_parts(variant=''):
         'docProps/core.xml': _x(core),
         'docProps/app.xml': _x(app),
     }
+
+
+def build_blank_template_parts(photo_drawing='none'):
+    """A BLANK form (2.6.0): photo slots empty, no old case text, 2026-10-31 photo sheet.
+
+    photo_drawing: 'none'  photo sheet has no drawing at all (Excel drops it when empty)
+                   'logo'  photo sheet keeps a drawing with a logo outside the slots
+                   'mark'  a red marking shape left over a slot (must be refused)
+                   'incell' a picture placed in a cell (must be refused)
+    """
+    parts = build_template_parts()
+    shared = []
+    report_cells = dict(STATIC)
+    report_cells['B60'] = ('SUM(1,2)', 3)
+    sheet1 = _sheet(report_cells, shared)
+    _merges(sheet1, ['A1:F1'] + sorted(set(FP.REPORT_MERGES.values())))
+    ET.SubElement(sheet1, '{%s}pageMargins' % S, left='0.7', right='0.7', top='0.75', bottom='0.75', header='0.3', footer='0.3')
+    ET.SubElement(sheet1, '{%s}drawing' % S, {'{%s}id' % R: 'rId1'})
+    ET.SubElement(sheet1, '{%s}legacyDrawing' % S, {'{%s}id' % R: 'rId2'})
+    photo_cells = {'A1': '写真帳', 'N5': '№', 'N24': '№', 'N43': '№'}
+    if photo_drawing == 'incell':
+        photo_cells['B5'] = '#VALUE!'
+    sheet2 = _sheet(photo_cells, shared)
+    fmt_at = 0
+    sheet2.insert(fmt_at, ET.Element('{%s}sheetFormatPr' % S, defaultRowHeight='13.5'))
+    cols = ET.Element('{%s}cols' % S)
+    ET.SubElement(cols, '{%s}col' % S, min='1', max='21', width='4.625', customWidth='1')
+    sheet2.insert(1, cols)
+    if photo_drawing == 'incell':
+        c = sheet2.find('.//{%s}c[@r="B5"]' % S)
+        c.set('vm', '1')
+        c.set('t', 'e')
+        c.find('{%s}v' % S).text = '#VALUE!'
+    _merges(sheet2, photo_merges('2026-10-31'))
+    ET.SubElement(sheet2, '{%s}pageMargins' % S, left='0.7', right='0.7', top='0.75', bottom='0.75', header='0.3', footer='0.3')
+    sheet3 = _sheet({f'A{i}': t for i, t in enumerate(AUX_TEXT, 1)}, shared)
+    sst = ET.Element('{%s}sst' % S, nsmap={None: S}, count=str(len(shared)), uniqueCount=str(len(shared)))
+    for t in shared:
+        ET.SubElement(ET.SubElement(sst, '{%s}si' % S), '{%s}t' % S).text = t
+    for name in ('xl/drawings/drawing2.xml', 'xl/drawings/_rels/drawing2.xml.rels', 'xl/worksheets/_rels/sheet2.xml.rels',
+                 'xl/media/image1.jpeg', 'xl/media/image2.jpeg', 'xl/media/image3.jpeg'):
+        parts.pop(name)
+    parts.update({'xl/worksheets/sheet1.xml': _x(sheet1), 'xl/worksheets/sheet3.xml': _x(sheet3), 'xl/sharedStrings.xml': _x(sst)})
+    if photo_drawing in ('logo', 'mark'):
+        ET.SubElement(sheet2, '{%s}drawing' % S, {'{%s}id' % R: 'rId1'})
+        s2rels = ET.Element('{%s}Relationships' % P, nsmap={None: P})
+        ET.SubElement(s2rels, '{%s}Relationship' % P, Id='rId1', Type=R + '/drawing', Target='../drawings/drawing2.xml')
+        dr = ET.Element('{%s}wsDr' % X, nsmap={'xdr': X, 'a': A})
+        anchor = ET.SubElement(dr, '{%s}twoCellAnchor' % X)
+        row = 61 if photo_drawing == 'logo' else 8
+        frm = ET.SubElement(anchor, '{%s}from' % X)
+        for tag, val in (('col', 1), ('colOff', 0), ('row', row), ('rowOff', 0)):
+            ET.SubElement(frm, '{%s}%s' % (X, tag)).text = str(val)
+        to = ET.SubElement(anchor, '{%s}to' % X)
+        for tag, val in (('col', 4), ('colOff', 0), ('row', row + 2), ('rowOff', 0)):
+            ET.SubElement(to, '{%s}%s' % (X, tag)).text = str(val)
+        sp = ET.SubElement(anchor, '{%s}sp' % X)
+        ET.SubElement(ET.SubElement(sp, '{%s}nvSpPr' % X), '{%s}cNvPr' % X, id='2', name='架空ロゴ枠')
+        ET.SubElement(anchor, '{%s}clientData' % X)
+        parts['xl/worksheets/_rels/sheet2.xml.rels'] = _x(s2rels)
+        parts['xl/drawings/drawing2.xml'] = _x(dr)
+        types = ET.fromstring(parts['[Content_Types].xml'])
+        ET.SubElement(types, '{%s}Override' % CT, PartName='/xl/drawings/drawing2.xml',
+                      ContentType='application/vnd.openxmlformats-officedocument.drawing+xml')
+        parts['[Content_Types].xml'] = _x(types)
+    parts['xl/worksheets/sheet2.xml'] = _x(sheet2)
+    parts.pop('xl/calcChain.xml', None)
+    wbrels = ET.fromstring(parts['xl/_rels/workbook.xml.rels'])
+    for rel in list(wbrels):
+        if rel.get('Target') == 'calcChain.xml':
+            wbrels.remove(rel)
+    parts['xl/_rels/workbook.xml.rels'] = _x(wbrels)
+    types = ET.fromstring(parts['[Content_Types].xml'])
+    for d in list(types):
+        if d.get('Extension') == 'jpeg' or d.get('PartName') == '/xl/calcChain.xml':
+            types.remove(d)
+    parts['[Content_Types].xml'] = _x(types)
+    return parts
 
 
 def write_zip(path, parts, stored=True):

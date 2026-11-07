@@ -173,7 +173,7 @@ details.more summary{cursor:pointer;font-weight:800}
    a file the user exports: backup ZIP, ledger CSV, or a report package for
    the Field Survey converter (hb-report-package/1).
    ==================================================================== */
-const APP_VERSION = '0.3.0';
+const APP_VERSION = '0.4.0';
 const DB_NAME = 'homebox', DB_VERSION = 1;
 const PKG_SCHEMA = 'hb-report-package/2', BACKUP_SCHEMA = 'hb-backup/1';
 const MAX_REPORT_PHOTOS = 3, MAX_TIMELINE = 8;
@@ -330,7 +330,7 @@ const STAGES = ['（第１報）', '（第２報）', '（第３報）', '（最
 const CASE_FIELDS = [
   { k: '報告の段階', t: 'select', g: '報告書', opt: STAGES, tip: '原因・処置・予防対策を第１報で書けないときは、続報（第２報…）で追記。追記がなくなったら（最終）。' },
   { k: '発生日時', t: 'datetime', g: '発生', req: true },
-  { k: '件名', t: 'text', g: '発生', req: true, tip: '場所・設備＋現象。例：区画25「○○」ホール天井漏水あり（約27文字まで）' },
+  { k: '件名', t: 'text', g: '発生', req: true, tip: '場所・設備＋現象。例：区画○「○○」ホール天井漏水あり（約27文字まで）' },
   { k: '発生区分', t: 'select', g: '発生', opt: ['故障', '事故', '事件', 'クレーム', 'その他'] },
   { k: '案件類型', l: '内容', t: 'select', g: '発生', opt: ['機器の故障', '漏水', '排水詰り', '施設の損傷', '停電', '火災', '地震', '風水害', 'その他'] },
   { k: '職種', t: 'select', g: '発生', opt: ['設備', '清掃', '警備', '駐車場', '客室', '管理人', '受付', '事務', 'その他'] },
@@ -590,6 +590,8 @@ function caseProblems(c, photos) {
     if (!ph) return p.push(`写真${i + 1}が見つかりません`);
     if (ph.equipmentId !== c.equipmentId) p.push(`写真${i + 1}は別の設備（${ph.equipmentId}）の写真です`);
     if (!(ph.caption || '').trim()) p.push(`写真${i + 1}（${ph.kind}）の説明文が空です`);
+    const capLines = (ph.place ? 1 : 0) + (ph.caption || '').split('\n').filter(x => x.trim()).length + (ph.mark ? 1 : 0);
+    if (capLines > 5) p.push(`写真${i + 1}の説明は、撮影場所・注釈と合わせて5行までです（今は${capLines}行）`);
   });
   const hashes = c.selected.map(id => photos.find(x => x.id === id)?.sha256).filter(Boolean);
   if (new Set(hashes).size !== hashes.length) p.push('まったく同じ画像が2枚以上選ばれています（変換ツールが停止します）');
@@ -655,6 +657,10 @@ const engine = {
   warm(onProgress) { return this.warmP ||= this.call('warm', {}, onProgress).catch(e => { this.warmP = null; throw e; }); },
 };
 async function templateRecord() { return get('meta', TEMPLATE_KEY); }
+// v0.4.0: which form the registered template is (read from the file by the engine, never assumed)
+const tplLine = t => t.form
+  ? `<b>${esc(t.form.label)}</b>・写真枠 ${t.form.slots}つ・${esc(t.form.mode_label)}・承認者 ${esc(t.approver)}`
+  : '<span class="badge todo">要再登録</span> v0.4.0 で様式の確認方法が変わりました。管理者から新しい承認済み一覧を受け取り、登録し直してください。';
 function stopwatch(el) {
   const t0 = performance.now(); let stage = '';
   const tick = () => { el.textContent = `${stage}（${((performance.now() - t0) / 1000).toFixed(0)}秒）`; };
@@ -913,13 +919,14 @@ async function viewCase(id) {
     <div id="probs"></div>
     <div class="row"><button class="btn" id="pv">様式に入るか確認</button><button class="btn primary" id="mkxlsx">この端末で会社様式のExcelを作る</button><button class="btn small" id="follow">続報を作る</button></div>
     <div id="pvOut"></div>
+    <p class="muted small" id="tplUse"></p>
     <p class="muted small" id="xlsxStatus">承認済みのひな形で、写真の配置から全部品の検査まで、この端末の中で行います。初回は準備に数十秒かかります。</p>
     <div id="xlsxResult"></div>
     ${(c.reports || []).length ? `<details class="more"><summary>これまでに作ったExcel（${c.reports.length}件）</summary><ul class="small">${c.reports.slice(-5).reverse().map(r => `<li>${esc(fmt(r.at))}・${esc(r.name)}・承認 ${esc(r.approvalId)}・${esc(r.seconds)}秒</li>`).join('')}</ul></details>` : ''}
     <div class="row"><button class="btn small" id="export">報告書パッケージを書き出す（Termuxで変換する場合）</button><button class="btn red small" id="delc">案件を削除</button></div>
     <details class="more"><summary>Termuxで変換する場合の手順</summary><ol class="small">
       <li>ダウンロードに <span class="mono">HB-REPORT-${esc(c.id)}.zip</span> ができます。</li>
-      <li>Termux で <span class="mono">bash ~/FS_Phone_Converter_v2_5_0/run_homebox.sh</span> を実行すると、承認済みの会社様式に変換されます。</li>
+      <li>Termux で <span class="mono">bash ~/FS_Phone_Converter_v2_6_0/run_homebox.sh</span> を実行すると、承認済みの会社様式に変換されます。</li>
       <li>完成品は <span class="mono">Download/FS_変換結果</span> に入ります。印刷前に必ず内容を確認してください。</li></ol></details>
     ${c.exportedAt ? `<p class="muted small">前回の書き出し：${esc(fmt(c.exportedAt))}</p>` : ''}</section>`;
   let timer;
@@ -941,7 +948,7 @@ async function viewCase(id) {
   const drawCaptions = async () => {
     const sel = await Promise.all(c.selected.map(pid => get('photos', pid)));
     $('#captions').innerHTML = sel.filter(Boolean).map((p, i) => `<div class="tl" data-cap="${esc(p.id)}"><b>写真${i + 1}：${esc(p.kind)} <span class="mono">${esc(p.name)}</span></b>
-      <label class="field">写真右側の説明文 <span class="req">必須</span><textarea data-k="caption">${esc(p.caption)}</textarea></label>
+      <label class="field">写真右側の説明文 <span class="req">必須</span> <span class="note">1行ずつ説明欄に入ります（撮影場所・注釈と合わせて5行まで、1行16文字程度）</span><textarea data-k="caption">${esc(p.caption)}</textarea></label>
       <div class="grid2"><label class="field">撮影場所<input type="text" data-k="place" value="${esc(p.place)}"></label>
       <label class="field">注釈・マーキングの指示 <span class="note">赤丸などは手作業で</span><input type="text" data-k="mark" value="${esc(p.mark)}"></label></div></div>`).join('');
   };
@@ -982,6 +989,7 @@ async function viewCase(id) {
     c.exportedAt = nowIso(); await put('cases', c); toast('報告書パッケージを書き出しました');
   };
   templateRecord().then(t => { if (t) engine.warm().catch(() => { }); }); // get the engine ready while the user types
+  templateRecord().then(t => { const u = $('#tplUse'); if (u) u.innerHTML = t ? '使う様式：' + tplLine(t) : '会社様式は未登録です（設定で登録）。'; });
   $('#mkxlsx').onclick = async () => {
     await save(); const photos = await all('photos');
     if (caseProblems(c, photos).length) return toast('直すところがあります');
@@ -1248,7 +1256,7 @@ async function viewSettings() {
   };
   const drawTpl = async () => {
     const t = await templateRecord();
-    $('#tplState').innerHTML = t ? `<span class="badge ok">登録済み</span> ${esc(t.name)}<br>承認 ${esc(t.approvalId)}（${esc(t.approver)}、${esc(fmt(t.approvedAt))}）${t.validUntil ? '・有効期限 ' + esc(fmt(t.validUntil)) : ''}<br><span class="mono">SHA-256 ${esc(t.sha256.slice(0, 16))}…</span>`
+    $('#tplState').innerHTML = t ? `<span class="badge ok">登録済み</span> ${esc(t.name)}<br>${tplLine(t)}<br>承認 ${esc(t.approvalId)}（${esc(t.approver)}、${esc(fmt(t.approvedAt))}）${t.validUntil ? '・有効期限 ' + esc(fmt(t.validUntil)) : ''}<br><span class="mono">SHA-256 ${esc(t.sha256.slice(0, 16))}…</span>`
       : '<span class="badge todo">未登録</span> 登録するまで、この端末ではExcelを作れません（報告書パッケージの書き出しはできます）。';
   };
   drawTpl();
@@ -1262,7 +1270,8 @@ async function viewSettings() {
       const r = await engine.call('verify', { template: template.slice(), manifest: new TextEncoder().encode(manifestText) }, s => sw.set(s));
       const secs = sw.stop().toFixed(0);
       await put('meta', { key: TEMPLATE_KEY, name: x.name, blob: new Blob([template]), sha256: r.result.template_sha256, manifestText,
-        approvalId: r.result.approval_id, approver: r.result.approver, approvedAt: r.result.approved_at, validUntil: r.result.valid_until, registeredAt: nowIso() });
+        approvalId: r.result.approval_id, approver: r.result.approver, approvedAt: r.result.approved_at, validUntil: r.result.valid_until,
+        form: r.result.form, registeredAt: nowIso() });
       st.textContent = `照合に合格し、登録しました（${secs}秒）。`; drawTpl();
     } catch (err) { sw.stop(); st.textContent = '登録できません：' + err.message; }
   };

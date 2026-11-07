@@ -1,4 +1,5 @@
-// v0.3.0: the in-app Excel looks like completed company reports. Real Chromium, SYNTHETIC data.
+// v0.3.0: the in-app Excel looks like completed company reports. v0.4.0: works with a BLANK form
+// (pass blank_template.xlsx / blank_approved.json). Real Chromium, SYNTHETIC data.
 // Serve a COPY of homebox-app with the test key (see make_test_approval.py).
 // Usage: node e2e_report_layout.js <baseUrl> <outDir> <template.xlsx> <approved.json> <photo.jpg> <photo2.jpg>
 const { chromium } = require('playwright');
@@ -17,6 +18,9 @@ const must = (c, m) => { if (!c) throw new Error(m); };
   await p.goto(base + '#settings'); await p.waitForSelector('#tplReg');
   await p.setInputFiles('#tplX', tplPath); await p.setInputFiles('#tplM', manPath); await p.click('#tplReg');
   await p.waitForFunction(() => /登録しました|登録できません/.test(document.querySelector('#warmState').textContent));
+  const tplText = await p.textContent('#tplState');
+  must(tplText.includes('現場異常速報（2026年10月の配置）') && tplText.includes('写真枠 3つ'), 'form shown at registration: ' + tplText);
+  step('registered template shows its form, slots and photo method: ' + tplText.split('承認 ')[0].replace(/\s+/g, ' ').slice(0, 90));
   await p.fill('#pf-dept', '架空支店'); await p.fill('#pf-bldg', '架空駅名店街'); await p.fill('#pf-name', '架空　太郎'); await p.selectOption('#pf-role', '班長');
   for (const [kind, who, org] of [['オーナー・テナント', '架空', '架空不動産株式会社'], ['オーナー・テナント', '仮名', '架空不動産株式会社'], ['社内', '架空課長', '']]) {
     await p.click('#pf-add'); const row = p.locator('#pf-ct [data-pi]').last();

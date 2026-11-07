@@ -4,7 +4,7 @@
 // only reads files served by the HomeBox origin and the bytes the page passes in.
 'use strict';
 const PYODIDE_DIR = './pyodide/0.27.7/';
-const ENGINE_FILES = ['engine_policy.py', 'approval.py', 'report_layout.py', 'converter_mobile.py', 'homebox_adapter.py', 'case_exports.py'];
+const ENGINE_FILES = ['engine_policy.py', 'form_profile.py', 'approval.py', 'report_layout.py', 'converter_mobile.py', 'homebox_adapter.py', 'case_exports.py'];
 importScripts(PYODIDE_DIR + 'pyodide.js');
 
 let bootPromise = null;
@@ -35,7 +35,7 @@ function boot(id) {
     await py.runPythonAsync(`
 import sys
 sys.path.insert(0, '/engine')
-import converter_mobile, approval, homebox_adapter, case_exports, engine_policy, report_layout
+import converter_mobile, approval, homebox_adapter, case_exports, engine_policy, report_layout, form_profile
 `);
     t.engine = ms();
     return { py, t };
@@ -86,9 +86,11 @@ json.dumps({'cells': {k: (v if isinstance(v, str) else None) for k, v in r.items
     if (cmd === 'verify') {
       post(id, 'progress', { stage: '署名と原本を照合しています' });
       const json = await py.runPythonAsync(`
-import json, approval as AP
+import json, approval as AP, form_profile as FP
 m = AP.verify_manifest('/work/template.xlsx', '/work/approved.json', '/work/trusted.json')
-json.dumps({k: m['approval'].get(k) for k in ('approval_id', 'approver', 'approved_at', 'valid_until')} | {'template_sha256': m['template']['sha256']}, ensure_ascii=False)
+pl = m['_plan']
+form = {'label': pl['label'], 'mode': pl['mode'], 'mode_label': FP.MODE_LABELS[pl['mode']], 'slots': len(pl['slots'])}
+json.dumps({k: m['approval'].get(k) for k in ('approval_id', 'approver', 'approved_at', 'valid_until')} | {'template_sha256': m['template']['sha256'], 'form': form}, ensure_ascii=False)
 `);
       return post(id, 'done', { result: JSON.parse(json) });
     }

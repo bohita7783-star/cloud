@@ -28,8 +28,9 @@ from lxml import etree as ET
 
 import approval as AP
 import engine_policy as EP
+import form_profile as FP
 
-INSPECTOR_VERSION = '2.5.0-layout-preview'
+INSPECTOR_VERSION = '2.6.0-form-profile'
 SS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
 REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 NS = {'m': SS}
@@ -108,7 +109,8 @@ def _counts(z):
             'ctrl_props': sum(1 for n in names if n.startswith('xl/ctrlProps/')),
             'vml': sum(1 for n in names if n.lower().endswith('.vml')),
             'emf': sum(1 for n in names if n.lower().endswith('.emf')),
-            'media_other_than_photo_slots': sum(1 for n in names if n.startswith('xl/media/') and n not in EP.ALLOWED_PHOTO_PARTS)}
+            'media_other_than_photo_slots': sum(1 for n in names if n.startswith('xl/media/') and n not in EP.ALLOWED_PHOTO_PARTS),
+            'in_cell_image_parts': sum(1 for n in names if n.startswith('xl/richData/') or n == 'xl/metadata.xml')}
 
 
 def inspect_template(path, now=None):
@@ -120,14 +122,20 @@ def inspect_template(path, now=None):
         external = _external_relationships(z)
         props = _doc_props_presence(z)
         counts = _counts(z)
+        try:
+            plan = FP.analyze_zip(z)
+        except FP.FormError as ex:
+            plan = {'profile_id': FP.PROFILE_ID, 'label': FP.PROFILE_LABEL, 'slots': [], 'mode': 'refused',
+                    'photo_drawing': None, 'photo_drawing_rels': None, 'photo_sheet_rels': False, 'problems': [str(ex)]}
     parts = []
     for p in inventory:
-        cat = EP.category_for(p['name'])
+        cat = EP.category_for(p['name'], plan)
         parts.append(dict(p, category=cat, category_label=EP.CATEGORY_LABELS[cat],
-                          purpose=EP.purpose_for(p['name']), risk_flags=EP.risk_flags(p['name'])))
+                          purpose=EP.purpose_for(p['name'], plan), risk_flags=EP.risk_flags(p['name'], plan)))
     names = {p['name'] for p in parts}
-    missing_required = [n for n in EP.REQUIRED_PARTS if n not in names]
-    blockers = []
+    missing_required = [n for n in EP.REQUIRED_PARTS + (EP.BASELINE_REQUIRED if plan['mode'] == 'baseline' else ())
+                        if n not in names]
+    blockers = list(plan['problems'])
     if missing_required:
         blockers.append('変換に必要な部品がありません: ' + ', '.join(missing_required))
     sheet_parts = [s['part'] for s in sheets]
@@ -138,6 +146,7 @@ def inspect_template(path, now=None):
         'status': 'pending',
         'layout_id': EP.LAYOUT_ID,
         'engine_policy_version': EP.ENGINE_POLICY_VERSION,
+        'form': FP.summary(plan),
         'template': {'file_name': path.name, 'sha256': AP.sha256_file(path), 'size': path.stat().st_size},
         'parts': parts,
         'inspection': {
@@ -173,6 +182,20 @@ def render_report(pending):
     w(f"| 検査日時（UTC） | {ins['inspected_at']} |")
     w(f"| 検査ツール | {ins['inspector_version']} |")
     w('')
+    form = pending.get('form') or {}
+    w('## 様式と写真の入れ方（ファイルの枠の形から自動判定）')
+    w('')
+    w(f"- 対応している様式：{FP.PROFILE_LABEL}（報告書シートの書き込み先{len(FP.REPORT_MERGES)}か所の枠の位置を照合）")
+    w(f"- 写真の入れ方：**{FP.MODE_LABELS.get(form.get('photo_mode'), '―')}**")
+    if form.get('photo_slots'):
+        w('')
+        w('| 写真枠 | 写真の範囲 | 番号 | 説明の行（上から） |')
+        w('|---|---|---|---|')
+        for i, sl in enumerate(form['photo_slots'], 1):
+            w(f"| {i} | {sl['picture']} | {sl['number']} | {'、'.join(sl['captions'])} |")
+    w('')
+    w('> 写真枠の位置は、このファイルの結合セルから読み取っています。Excelで写真シートを開き、上の範囲が写真・番号・説明の欄と合っているか確認してください。')
+    w('')
     if ins['blockers']:
         w('## 承認できない理由（先に解消が必要）')
         for b in ins['blockers']:
@@ -203,6 +226,7 @@ def render_report(pending):
     w(f"| VML図形 | {c['vml']} | チェックボックス・コメント枠の正体 |")
     w(f"| EMF画像 | {c['emf']} | 各シートの図・ロゴ |")
     w(f"| 写真枠以外の画像 | {c['media_other_than_photo_slots']} | 各シートの図・画像に過去の写真が無いか |")
+    w(f"| セル内画像の部品 | {c.get('in_cell_image_parts', 0)} | 記入例など他のシートのセル内画像（前の案件の写真が無いか） |")
     w('')
     if ins['external_relationships']:
         w('外部参照のある部品（参照先は表示しません）:')
@@ -229,7 +253,10 @@ def render_report(pending):
         if name in {p['name'] for p in parts}:
             w(f'  - {name}（{purpose}）: {what}')
     w('- **削除予定**: 変換時に削除します。' + '、'.join(f'{n}（{v[1]}）' for n, v in EP.DELETE_PARTS.items()))
-    w('- **生成予定**: この版では新しく作る部品はありません。それ以外の部品が増えたら停止します。')
+    if form.get('photo_mode') == 'blank':
+        w('- **生成予定**: 写真の画像（' + EP.GEN_MEDIA.format('N') + '）と、写真シートに図形配置が無い場合はその部品（' + EP.GEN_DRAWING + '）。それ以外の部品が増えたら停止します。')
+    else:
+        w('- **生成予定**: 新しく作る部品はありません。それ以外の部品が増えたら停止します。')
     return '\n'.join(lines) + '\n'
 
 

@@ -3,6 +3,8 @@ import io, zipfile, tempfile, unittest, sys
 from pathlib import Path
 from lxml import etree as ET
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from synthetic_template import bare_form_sheet
 from converter_mobile import (check_company_report_package, transform_package, xml_root, ns, Q)
 S='http://schemas.openxmlformats.org/spreadsheetml/2006/main'
 X='http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing'
@@ -27,10 +29,11 @@ def clean_package(calc=False,after_calc=False):
     if calc:ET.SubElement(wb,'{%s}calcPr'%S)
     if after_calc: ET.SubElement(wb,'{%s}extLst'%S)
     p={
-        'xl/worksheets/sheet1.xml':xml(sheet),
-        'xl/worksheets/sheet2.xml':xml(sheet),
+        'xl/worksheets/sheet1.xml':xml(bare_form_sheet('report')),
+        'xl/worksheets/sheet2.xml':xml(bare_form_sheet('photo')),
         'xl/workbook.xml':xml(wb),
         'xl/drawings/drawing2.xml':xml(dr),
+        'xl/worksheets/_rels/sheet2.xml.rels':b'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing2.xml"/></Relationships>',
         'xl/drawings/_rels/drawing2.xml.rels':xml(rel),
         'xl/sharedStrings.xml':xml(ET.Element('{%s}sst'%S)),
     }

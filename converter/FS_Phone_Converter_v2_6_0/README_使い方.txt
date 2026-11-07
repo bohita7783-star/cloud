@@ -1,7 +1,7 @@
 【2.4.0〜で追加：ホームボックスからの変換】
 ・ホームボックスの異常案件で「報告書パッケージを書き出す」を押すと、Download に
   HB-REPORT-<案件ID>.zip ができます。
-・Termux で：bash ~/FS_Phone_Converter_v2_5_0/run_homebox.sh
+・Termux で：bash ~/FS_Phone_Converter_v2_6_0/run_homebox.sh
   → 最新のパッケージを、承認済みひな形で会社様式に変換し、Download/FS_変換結果 に保存。
 ・Field Survey からの変換（run_ui.sh / run.sh）も従来どおり使えます。
 ・v2.3.3 で署名した承認済み一覧（approvals/）と trusted_approvers.json は、そのまま使えます。
@@ -57,18 +57,18 @@ Field Survey → 会社Excel 写真帳変換ツール v2.5.0-layout-preview（�
 1. ZIPをPixel 9aのDownloadへダウンロード。
 2. Termuxに以下のコマンドを一行ずつ入力：
    cd ~
-   unzip -o ~/storage/downloads/field_survey_converter_v2_5_0_layout_preview.zip
+   unzip -o ~/storage/downloads/field_survey_converter_v2_6_0_layout_preview.zip
    # 旧社内ひな形をコピーしないでください（このプレビューでは実会社資料を使用禁止）
    ※架空のテスト用ひな形だけを使ってください。
    ※事前に会社が許可した社内Excelファイルだけを使用する。
 3. 実行：
-   bash ~/FS_Phone_Converter_v2_5_0/run_ui.sh
+   bash ~/FS_Phone_Converter_v2_6_0/run_ui.sh
    ブラウザが開く（開かない時はTermuxに表示された http://127.0.0.1:... へ）。
    XLSX＋元写真ZIPを選択→件名で案件選択→写真を確認→変換。
 4. 完成品の保存先：Androidの Download / FS_変換結果
 
 【文字だけで実行したい場合】
-   bash ~/FS_Phone_Converter_v2_5_0/run.sh
+   bash ~/FS_Phone_Converter_v2_6_0/run.sh
    まずExcel＋写真ZIPを選択、次に案件の件名を見ながら番号選択。
    終了後に案件別元データと会社書式Excelが同じフォルダーへ保存される。
 

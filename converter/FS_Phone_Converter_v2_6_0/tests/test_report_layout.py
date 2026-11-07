@@ -139,8 +139,15 @@ class TestPhotosAndWarnings(unittest.TestCase):
         _, p, _ = CM.build_updates_with_notes(case(_contacts=[]), photos, [], today=TODAY)
         self.assertEqual((p['B1'], p['P5'], p['N7'], p['N10'], p['N13']), ('架空区画 天井漏水あり', 1, '架空区画 店内', 'ホール天井', '天井内にバケツ設置'))
         self.assertEqual((p['N29'], p['N32']), ('配線', '赤枠が焼損箇所'))
-        with self.assertRaisesRegex(ValueError, '2行まで'):
-            CM.build_updates_with_notes(case(_contacts=[]), [{'写真右側の説明文': 'a\nb\nc'}], [], today=TODAY)
+        # 2.6.0: 5 caption lines in the 2026-10 form (場所 + 説明 + 注釈); the 3rd slot uses the
+        # template's own lines (N45/N48/... in the 2026-10-31 form)
+        five = {'撮影場所': '場所', '写真右側の説明文': 'a\nb\nc', '注釈・マーキングの指示': '赤丸'}
+        _, p, _ = CM.build_updates_with_notes(case(_contacts=[]), [{}, {}, five], [], today=TODAY)
+        self.assertEqual([p.get(c) for c in ('N45', 'N48', 'N51', 'N54', 'N57')], ['場所', 'a', 'b', 'c', '赤丸'])
+        with self.assertRaisesRegex(ValueError, '5行まで'):
+            CM.build_updates_with_notes(case(_contacts=[]), [dict(five, 写真右側の説明文='a\nb\nc\nd')], [], today=TODAY)
+        with self.assertRaisesRegex(ValueError, '3枚まで'):
+            CM.build_updates_with_notes(case(_contacts=[]), [{}, {}, {}, {}], [], today=TODAY)
 
     def test_long_title_is_a_warning_not_a_loss(self):
         _, _, warn = CM.build_updates_with_notes(case(件名='け' * 40, _contacts=[]), [], [], today=TODAY)

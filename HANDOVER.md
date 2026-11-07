@@ -19,7 +19,8 @@
 | スマホで現場異常・写真・対応経過を記録 | 試作完成（Field Survey と同じ入力項目） |
 | スマホだけで会社様式のExcelを作る（Termux不要） | 試作完成（v0.2.0、Pyodide） |
 | 出力の書き方を実際の現場異常速報に合わせる | 実装・試験済み（v0.3.0／2.5.0。実物の様式で見た目を照合、リポジトリには入れていない） |
-| 2.5.0 用の承認済み一覧の再署名 | **未実施（会社側の作業。engine-2.5.0 に上げたため必須）** |
+| 様式の版の照合・空様式への写真の貼り付け | 実装・試験済み（v0.4.0／2.6.0。実物10-31を空様式にした模擬で確認） |
+| 会社の空様式（10-17／10-31配置）の作成と承認・署名（engine-2.6.0） | **未実施（会社側の作業。承認手順書 2-1）** |
 | 会社様式の安全（原本を変えない、承認済みひな形のみ、部品ごとの検査） | 実装・試験済み（合成データ） |
 | Pixel 9a の実機試験 | **未実施** |
 | 会社の実物の空白ひな形の承認・署名 | **未実施（会社側の作業）** |
@@ -34,9 +35,9 @@
 
 | 成果物 | 場所 | 版 |
 |---|---|---|
-| ホームボックス（アプリ本体、PWA） | `homebox-app/` | **v0.3.0** |
-| 変換ツール（Termux / Python） | `converter/FS_Phone_Converter_v2_5_0/` | **2.5.0-layout-preview** |
-| アプリ内の変換エンジン | `homebox-app/engine/`（変換ツールと**同一ファイル**） | 2.5.0 |
+| ホームボックス（アプリ本体、PWA） | `homebox-app/` | **v0.4.0** |
+| 変換ツール（Termux / Python） | `converter/FS_Phone_Converter_v2_6_0/` | **2.6.0-form-profile** |
+| アプリ内の変換エンジン | `homebox-app/engine/`（変換ツールと**同一ファイル**） | 2.6.0 |
 | 紹介ページ（LP、デザイン基準） | `homebox-lp/`（公開ページ：https://claude.ai/artifact/FYfRVjcmLvah4BYpk9wDZs ） | v0.1.1 |
 | 電気の疑問図鑑（別アプリ、無関係） | リポジトリのルート（`index.html`, `sw.js`） | v2.2 |
 
@@ -45,8 +46,8 @@
 - `homebox-app/ARCHITECTURE.md`：全体構成、安全の仕組み、受け入れ条件（7.1）、会社承認で確認すること（6章）
 - `homebox-app/DATA_CONTRACT.md`：報告書パッケージ `hb-report-package/1` の形式
 - `homebox-app/CHANGES_0_1_2.md`〜`CHANGES_0_2_0.md`：アプリの変更履歴
-- `converter/FS_Phone_Converter_v2_5_0/更新履歴_v2_*.txt`：変換ツールの変更履歴
-- `converter/FS_Phone_Converter_v2_5_0/承認手順書_管理者向け.md`：ひな形の承認手順
+- `converter/FS_Phone_Converter_v2_6_0/更新履歴_v2_*.txt`：変換ツールの変更履歴
+- `converter/FS_Phone_Converter_v2_6_0/承認手順書_管理者向け.md`：ひな形の承認手順
 - `homebox-lp/DESIGN.md`：デザイン言語（太い線、ベタ塗り、ずらした影、安全色オレンジ、点検済判子）
 
 ---
@@ -55,10 +56,10 @@
 
 ```
 [Pixel 9a]
- ホームボックス v0.3.0（PWA、データは端末のIndexedDBだけ）
+ ホームボックス v0.4.0（PWA、データは端末のIndexedDBだけ）
    設備台帳・撮影・点検・異常案件
      ├─「この端末で会社様式のExcelを作る」
-     │    engine-worker.js → Pyodide 0.27.7 → engine/*.py（変換ツール v2.5.0 と同一）
+     │    engine-worker.js → Pyodide 0.27.7 → engine/*.py（変換ツール v2.6.0 と同一）
      │    承認済みひな形＋承認済み一覧（設定で登録）＋ trusted_approvers.json（アプリと一緒に配信）
      │    → 会社様式Excel＋変換ログ（ダウンロード）
      └─「報告書パッケージを書き出す」→ HB-REPORT-<案件ID>.zip → Termux の run_homebox.sh（予備ルート）
@@ -88,7 +89,8 @@
 | 2.4.0 | ホームボックスからの入力（homebox_adapter.py、hb-report-package/1） |
 | 2.4.1 | 2.4.0＋2.3.4 の統合、行の並び順の検査 |
 | 2.4.2 | パッケージ検査の厳格化：sha256必須、写真名の設備IDと案件の一致、全階層の未知項目で停止、撮影日時の根拠を受け付け |
-| **2.5.0** | **出力を実際の報告書と同じ書き方に**（report_layout.py）：プルダウンと同じ文言、通報・現状報告の枠、時系列の折り返し（1行51字）、原因・処置報告、写真の説明2行、2ページ目は書かない。hb-report-package/2。engine-2.5.0（再承認が必要） |
+| 2.5.0 | 出力を実際の報告書と同じ書き方に（report_layout.py）：プルダウンと同じ文言、通報・現状報告の枠、時系列の折り返し（1行51字）、原因・処置報告、写真の説明2行、2ページ目は書かない。hb-report-package/2。engine-2.5.0（再承認が必要） |
+| **2.6.0** | **様式の版を確かめてから書く**（form_profile.py）：報告書の書き込み先96か所の枠を照合、写真枠を結合セルから読み取る（10-17と10-31の3枚目の説明欄の違いに対応）、空様式の写真枠に写真を図として貼る、セル内画像・写真・赤丸が残った様式や別配置の版は止める |
 
 ### ホームボックス
 
@@ -100,11 +102,14 @@
 | 0.1.3 | （別作業）台帳項目の追加・編集・非表示・復元・項目設定JSON |
 | 0.1.4 | **正式17項目を固定**（会社台帳と同じに保つ）。v0.1.3 で変更されていた場合は起動時に戻す |
 | 0.2.0 | アプリ内でExcel作成（Pyodide、変換エンジンは変換ツールと同一ファイル） |
-| **0.3.0** | **会社の報告書と同じ欄**：報告の段階・当事者・通報・現状報告（連絡先）・処置報告、報告者情報といつもの連絡先、「様式に入るか確認」、「続報を作る」 |
+| 0.3.0 | 会社の報告書と同じ欄：報告の段階・当事者・通報・現状報告（連絡先）・処置報告、報告者情報といつもの連絡先、「様式に入るか確認」、「続報を作る」 |
+| **0.4.0** | **空様式に対応**：登録した様式の種類・写真枠の数・写真の入れ方・承認者を表示、写真の説明は5行まで |
 
 **版の組み合わせ：** ホームボックス 0.1.1 以降のパッケージは変換ツール 2.4.2 以降でないと変換できない（撮影日時の根拠を足したため、古い版は安全側で停止）。
 
-**承認の互換性：** `engine_policy_version = report-2026-10-17/engine-2.5.0`。書き込むセルの範囲が変わったため、**2.5.0 以降は管理者の再署名が必要**（2.4.x 以前の承認では安全側で停止）。
+**承認の互換性：** `engine_policy_version = report-2026-10/engine-2.6.0`、様式ID `genba-ijou-sokuho-2026-10`。**2.6.0 以降は管理者の再署名が必要**（それ以前の承認では安全側で停止）。承認済み一覧には読み取った様式（写真枠など）も署名して記録する。
+
+**写真の入れ方の決定（2.6.0）：** 写真は「図」として写真枠に貼る。セル内画像にはしない（空様式には差し替える画像がない、Excel 365 以外では #VALUE! になる、赤丸を上に描けない）。セル内画像が残った様式は止める。別のAIの指示書は「セル内画像の差し替え」を提案していたが、上の理由で採らなかった。
 
 **実物の報告書の分析（2026-11-07、読み取りのみ・リポジトリには入れていない）：** 様式は版で配置が違う（09-13 は日時欄、10-10 は行が増えて原因が31行目、10-17 が承認済み配置、10-31 は同配置で写真がセル内画像）。承認するひな形は 10-17／10-31 配置の空様式にする。書き方の決まりは「時系列・場所を知らない人にも分かる・5W2H・第１報は24時間以内・原因や処置は続報」。写真への赤丸などは手作業のまま。
 
@@ -132,14 +137,14 @@
 ```bash
 cd /home/user/cloud   # リポジトリのルート
 
-# 変換ツールの単体テスト（72件）と、監査で見つかった異常系の再現（未検出 0/4 になること）
-cd converter/FS_Phone_Converter_v2_5_0
+# 変換ツールの単体テスト（84件）と、監査で見つかった異常系の再現（未検出 0/4 になること）
+cd converter/FS_Phone_Converter_v2_6_0
 python3 -I -m unittest discover -s tests
 python3 -I tests/audit_v240_regression_checks.py .
 cd ../..
 
 # アプリ内エンジンが変換ツールと同一か
-python3 -I homebox-app/tests/check_engine_sync.py converter/FS_Phone_Converter_v2_5_0
+python3 -I homebox-app/tests/check_engine_sync.py converter/FS_Phone_Converter_v2_6_0
 
 # アプリの単体テスト
 node homebox-app/tests/check_field_order.js
@@ -152,9 +157,10 @@ mkdir -p /tmp/hb/serve /tmp/hb/out && cp -r homebox-app /tmp/hb/serve/ && cp /tm
 node homebox-app/tests/e2e_app.js    http://127.0.0.1:8790/homebox-app/ /tmp/hb/out /tmp/hb/data/photo_exif.jpg /tmp/hb/data/photo2.jpg
 node homebox-app/tests/e2e_schema.js http://127.0.0.1:8790/homebox-app/ /tmp/hb/out
 node homebox-app/tests/e2e_excel.js  http://127.0.0.1:8790/homebox-app/ /tmp/hb/out /tmp/hb/data/template.xlsx /tmp/hb/data/approved.json /tmp/hb/data/tampered.json /tmp/hb/data/photo_exif.jpg
+node homebox-app/tests/e2e_report_layout.js http://127.0.0.1:8790/homebox-app/ /tmp/hb/out /tmp/hb/data/blank_template.xlsx /tmp/hb/data/blank_approved.json /tmp/hb/data/photo_exif.jpg /tmp/hb/data/photo2.jpg
 ```
 
-期待する結果：変換ツール56件OK、未検出0/4、同一OK、`e2e_app` 11段階、`e2e_schema` 全段階、`e2e_excel` 全段階（改ざん拒否・登録・作成・機内モードで再作成・未登録時の案内）、どれも画面エラー0件。
+期待する結果：変換ツール84件OK、`e2e_report_layout` 全段階（空様式の登録で「現場異常速報（2026年10月の配置）・写真枠 3つ」と表示）。以下は旧版からの項目：変換ツール56件OK、未検出0/4、同一OK、`e2e_app` 11段階、`e2e_schema` 全段階、`e2e_excel` 全段階（改ざん拒否・登録・作成・機内モードで再作成・未登録時の案内）、どれも画面エラー0件。
 
 **本物の `homebox-app/trusted_approvers.json` にテスト用の鍵を入れない。** 必ず複製（/tmp/hb/serve）で試す。
 
@@ -209,6 +215,9 @@ node homebox-app/tests/e2e_excel.js  http://127.0.0.1:8790/homebox-app/ /tmp/hb/
 ## 9. 既知の制限・リスク
 
 - 実機・実物の様式・Windows版Excelでの検証が全部まだ。
+- 対応する様式は 2026-10-17／10-31 の配置だけ。それ以外の版（行が多い・写真の列が違う・別AIの指示書にある 05-04 の配置など）は止まる。05-04 が正式な最新版なら、その空様式を受け取って配置を追加する。
+- セル内画像（Excel 365 の「セルに配置」）は扱わない。写真は図として貼る。セル内画像が残った様式は止まる。
+- 写真枠の位置計算は列幅・行の高さから近似（既定フォントの文字幅）。枠に対して数％の余白で収めているが、Windows版Excelでの見た目は未確認。
 - スマホ上でアプリのコードや公開鍵一覧を書き換えられると検査を外せる（変換ログにプログラムと公開鍵一覧のSHA-256を記録して検出する設計）。
 - アプリと変換エンジン（会社様式のセル位置を含む）は、このリポジトリで公開状態になり得る。業務では専用オリジン・管理された配布にする。
 - 項目設定は端末ごとの保存で自動同期しない。
@@ -232,7 +241,7 @@ node homebox-app/tests/e2e_excel.js  http://127.0.0.1:8790/homebox-app/ /tmp/hb/
 ```
 リポジトリ bohita7783-star/cloud のブランチ ccr-ec018fb4-ebuu9y を使う。
 まず HANDOVER.md を最後まで読み、6章の検証コマンドを実行して、
-現在の状態（変換ツール 2.5.0・ホームボックス v0.3.0）がすべて合格することを確かめてから報告して。
+現在の状態（変換ツール 2.6.0・ホームボックス v0.4.0）がすべて合格することを確かめてから報告して。
 決定事項（5章）は理由なく変えないこと。開発・試験は架空データだけで行うこと。
 そのうえで、次は 8章A の作業を進めたい。今日やりたいことは「（ここに書く）」。
 ```

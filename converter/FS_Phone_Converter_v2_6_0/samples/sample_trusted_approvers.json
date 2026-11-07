@@ -3,10 +3,10 @@
   "note": "サンプル専用。本番の trusted_approvers.json にコピーしないこと。",
   "keys": [
     {
-      "key_id": "ed25519:6d3174e26e4c7f69",
+      "key_id": "ed25519:fb32c59fc97f60af",
       "name": "サンプル承認者（架空）",
-      "public_key": "nlunvKH96hdOEW4W6VDDByjZSc2OKUTR6YcPnkZF6yU=",
-      "registered_at": "2026-11-07T06:15:26Z",
+      "public_key": "IIsWfQ69lMCxpr4NvwRpLefZz23IEpcaEMoV2hZV1p8=",
+      "registered_at": "2026-11-07T07:46:33Z",
       "revoked": false
     }
   ]

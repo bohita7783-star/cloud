@@ -173,14 +173,29 @@ def verify_manifest(template_path, manifest_path=None, trusted_path=None, approv
     listed = {p['name']: p for p in manifest.get('parts', [])}
     if {p['name'] for p in actual_parts} != set(listed):
         raise ApprovalError('原本の部品構成が承認済み一覧と違います')
+    missing = [n for n in EP.REQUIRED_PARTS if n not in listed]
+    if missing:
+        raise ApprovalError('変換に必要な部品がひな形にありません: ' + ', '.join(missing))
+    # 2.6.0: which form this is and how photos go in, derived again from the file itself
+    import form_profile as FP
+    with zipfile.ZipFile(template_path) as z:
+        try:
+            plan = FP.analyze_zip(z)
+        except FP.FormError as ex:
+            raise ApprovalError(str(ex)) from ex
+    if plan['mode'] == 'refused':
+        raise ApprovalError('このひな形は使えません：' + ' / '.join(plan['problems'][:3]))
+    if manifest.get('form') != FP.summary(plan):
+        raise ApprovalError('承認された様式の配置（写真枠など）と、変換ツールが読み取った配置が違います。再承認が必要です')
+    if plan['mode'] == 'baseline':
+        missing = [n for n in EP.BASELINE_REQUIRED if n not in listed]
+        if missing:
+            raise ApprovalError('変換に必要な部品がひな形にありません: ' + ', '.join(missing))
     for p in actual_parts:
         entry = listed[p['name']]
         if entry.get('sha256') != p['sha256']:
             raise ApprovalError('原本の部品が承認時と違います: ' + p['name'])
-        if entry.get('category') != EP.category_for(p['name']):
+        if entry.get('category') != EP.category_for(p['name'], plan):
             raise ApprovalError('承認一覧の変更区分が変換ツールのコードと一致しません: ' + p['name'])
-    missing = [n for n in EP.REQUIRED_PARTS if n not in listed]
-    if missing:
-        raise ApprovalError('変換に必要な部品がひな形にありません: ' + ', '.join(missing))
     return dict(manifest, _manifest_sha256=sha256_bytes(raw_bytes), _manifest_file=manifest_path.name,
-                _trusted_sha256=trusted_sha)
+                _trusted_sha256=trusted_sha, _plan=plan)

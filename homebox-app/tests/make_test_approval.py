@@ -5,6 +5,8 @@
 Writes into <out_dir>:
   template.xlsx              synthetic company-style template (EMF, VML, checkbox, extra sheet, external link)
   approved.json              approval manifest signed with a THROWAWAY key (private key is never written)
+  blank_template.xlsx        synthetic BLANK form (2.6.0: empty photo slots, photos are placed by the engine)
+  blank_approved.json        its approval manifest (same throwaway key)
   tampered.json              same manifest with the approver name changed (signature must fail)
   trusted_approvers.json     the throwaway public key (put this ONLY into a served test copy of homebox-app)
   photo_exif.jpg, photo2.jpg two different synthetic photos (the first carries EXIF DateTimeOriginal)
@@ -14,14 +16,14 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-CONV = ROOT / 'converter' / 'FS_Phone_Converter_v2_5_0'
+CONV = ROOT / 'converter' / 'FS_Phone_Converter_v2_6_0'
 sys.path[:0] = [str(CONV), str(CONV / 'tests')]
 
 from PIL import Image
 import approval as AP
 import approval_sign as SG
 import template_inspector as TI
-from synthetic_template import build_template_parts, write_zip
+from synthetic_template import build_blank_template_parts, build_template_parts, write_zip
 
 out = Path(sys.argv[1])
 out.mkdir(parents=True, exist_ok=True)
@@ -30,6 +32,9 @@ passphrase = 'throwaway-test-passphrase'
 pem, entry = SG.generate_keypair(passphrase, '架空 承認者')
 (out / 'trusted_approvers.json').write_text(json.dumps({'schema': AP.TRUSTED_SCHEMA, 'keys': [entry]}, ensure_ascii=False), encoding='utf-8')
 manifest = SG.sign_pending(tpl, TI.inspect_template(tpl), pem, passphrase, '架空 承認者', True)
+blank = write_zip(out / 'blank_template.xlsx', build_blank_template_parts('none'))
+blank_manifest = SG.sign_pending(blank, TI.inspect_template(blank), pem, passphrase, '架空 承認者', True)
+(out / 'blank_approved.json').write_text(json.dumps(blank_manifest, ensure_ascii=False), encoding='utf-8')
 del pem
 (out / 'approved.json').write_text(json.dumps(manifest, ensure_ascii=False), encoding='utf-8')
 manifest['approval']['approver'] = 'なりすまし（架空）'

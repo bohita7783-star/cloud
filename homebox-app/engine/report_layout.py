@@ -23,7 +23,7 @@ import datetime
 import re
 import unicodedata
 
-LAYOUT_VERSION = 'genba-ijou-sokuho-2026-10-17/layout-2.5.0'
+LAYOUT_VERSION = 'genba-ijou-sokuho-2026-10/layout-2.6.0'
 
 
 class LayoutError(ValueError):
@@ -286,23 +286,29 @@ def layout_report(case, timeline, contacts, parse_dt, parse_bool, parse_hhmm, to
 
 
 def layout_photos(case, photos, issue_day, slots):
-    """Photo sheet: title, date, and per slot № / 場所 / 対象 / 詳細 (説明の2行目 or 注釈)."""
+    """Photo sheet: title, date, and per slot № and the caption lines (場所, 説明…, 注釈).
+
+    2.6.0: `slots` come from the template (form_profile): dicts with 'number' and
+    'captions' (the caption lines from top to bottom, 5 in the 2026-10 form).
+    """
     warnings = []
     title = _clean(case.get('件名'))
     cells = {'B1': title, 'P3': issue_day}
     if text_width(title) > PHOTO_TITLE_WIDTH:
         warnings.append(f'写真帳の題名（件名）が長めです（約{PHOTO_TITLE_WIDTH}文字まで）')
+    if len(photos) > len(slots):
+        raise LayoutError(f'写真は{len(slots)}枚までです（様式の写真枠の数）')
     for i, photo in enumerate(photos):
-        _, num, loc, desc, mark, _ = slots[i]
+        slot = slots[i]
         lines = [x.strip() for x in str(photo.get('写真右側の説明文') or '').replace('\r\n', '\n').split('\n') if x.strip()]
+        loc = _clean(photo.get('撮影場所'))
         note = _clean(photo.get('注釈・マーキングの指示'))
-        if len(lines) > 2 or (len(lines) == 2 and note):
-            raise LayoutError(f'写真{i + 1}の説明は「対象」「詳細」の2行まで（詳細の行は注釈と共用）です')
-        cells[num] = i + 1
-        cells[loc] = _clean(photo.get('撮影場所'))
-        cells[desc] = lines[0] if lines else ''
-        cells[mark] = lines[1] if len(lines) > 1 else note
-        for cell in (loc, desc, mark):
-            if isinstance(cells.get(cell), str) and text_width(cells[cell]) > PHOTO_CAPTION_WIDTH:
-                warnings.append(f'写真{i + 1}の説明「{cells[cell][:8]}…」が長めです（1行約{PHOTO_CAPTION_WIDTH}文字まで）')
+        out = ([loc] if loc else []) + lines + ([note] if note else [])
+        if len(out) > len(slot['captions']):
+            raise LayoutError(f'写真{i + 1}の説明は、撮影場所と注釈を含めて{len(slot["captions"])}行までです（今は{len(out)}行）')
+        cells[slot['number']] = i + 1
+        for cell, text in zip(slot['captions'], out):
+            cells[cell] = text
+            if text_width(text) > PHOTO_CAPTION_WIDTH:
+                warnings.append(f'写真{i + 1}の説明「{text[:8]}…」が長めです（1行約{PHOTO_CAPTION_WIDTH}文字まで）')
     return {k: v for k, v in cells.items() if v not in (None, '')}, warnings

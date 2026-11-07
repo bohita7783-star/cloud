@@ -97,7 +97,7 @@ class TestConverter(unittest.TestCase):
     def workbook(self,**kwargs):return make_workbook(Path(self.td.name)/'test.xlsx',**kwargs)
 
     def test_version_unique(self):
-        self.assertEqual(VERSION,'2.5.0-layout-preview')
+        self.assertEqual(VERSION,'2.6.0-form-profile')
 
     def test_34th_column_preserved(self):
         b=self.workbook(extra_col=True)
@@ -180,9 +180,11 @@ class TestConverter(unittest.TestCase):
         ET.SubElement(contenttypes,'{%s}Override'%CT,PartName='/xl/calcChain.xml',ContentType='application/vnd.openxmlformats-officedocument.spreadsheetml.calcChain+xml')
         def xml(root):return ET.tostring(root,encoding='utf-8')
         with zipfile.ZipFile(template,'w') as z:
-            z.writestr('xl/worksheets/sheet1.xml',xml(empty))
-            z.writestr('xl/worksheets/sheet2.xml',xml(empty))
+            from synthetic_template import bare_form_sheet
+            z.writestr('xl/worksheets/sheet1.xml',xml(bare_form_sheet('report')))
+            z.writestr('xl/worksheets/sheet2.xml',xml(bare_form_sheet('photo')))
             z.writestr('xl/drawings/drawing2.xml',xml(draw))
+            z.writestr('xl/worksheets/_rels/sheet2.xml.rels',b'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing2.xml"/></Relationships>')
             z.writestr('xl/drawings/_rels/drawing2.xml.rels',xml(relationships))
             z.writestr('xl/sharedStrings.xml',xml(ET.Element('{%s}sst'%S)))
             z.writestr('xl/workbook.xml',xml(workbook))

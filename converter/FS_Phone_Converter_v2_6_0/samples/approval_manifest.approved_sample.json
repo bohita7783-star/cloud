@@ -1,12 +1,54 @@
 {
   "schema": "fs-converter-approval/1",
   "status": "approved",
-  "layout_id": "genba-ijou-sokuho-2026-10-17",
-  "engine_policy_version": "report-2026-10-17/engine-2.5.0",
+  "layout_id": "genba-ijou-sokuho-2026-10",
+  "engine_policy_version": "report-2026-10/engine-2.6.0",
+  "form": {
+    "profile_id": "genba-ijou-sokuho-2026-10",
+    "photo_mode": "baseline",
+    "photo_slots": [
+      {
+        "picture": "B5:L21",
+        "number": "P5",
+        "captions": [
+          "N7",
+          "N10",
+          "N13",
+          "N16",
+          "N19"
+        ]
+      },
+      {
+        "picture": "B24:L40",
+        "number": "P24",
+        "captions": [
+          "N26",
+          "N29",
+          "N32",
+          "N35",
+          "N38"
+        ]
+      },
+      {
+        "picture": "B43:L58",
+        "number": "P43",
+        "captions": [
+          "N45",
+          "N47",
+          "N50",
+          "N53",
+          "N56"
+        ]
+      }
+    ],
+    "photo_drawing": "xl/drawings/drawing2.xml",
+    "photo_drawing_rels": "xl/drawings/_rels/drawing2.xml.rels",
+    "photo_sheet_rels": true
+  },
   "template": {
     "file_name": "synthetic_blank_template.xlsx",
-    "sha256": "0065aff3982c625af951215e94d01719d8e3c102720bbf57a068d42c8623c17d",
-    "size": 15158
+    "sha256": "c4595a0af6eef284801d23fede67a7f2574023b9ed2239e311fb9cc2fb199267",
+    "size": 19963
   },
   "parts": [
     {
@@ -94,8 +136,8 @@
     },
     {
       "name": "xl/drawings/drawing1.xml",
-      "sha256": "ed9ff6d8a0480ce4d6bd9ba4d070bc91164ec2afb835fa3ddd60b23ee616270a",
-      "size": 410,
+      "sha256": "5f474a5af63d017b5ceba59151acfcbde6e3d376e38abf166f63501f12619a01",
+      "size": 634,
       "category": "immutable",
       "category_label": "変更禁止",
       "purpose": "図形配置",
@@ -103,8 +145,8 @@
     },
     {
       "name": "xl/drawings/drawing2.xml",
-      "sha256": "e79b48315ad58c96a29682d497be2347a4caf2cd3fd4fc1632a6f8adca0b1ca4",
-      "size": 776,
+      "sha256": "34a76a3857aed967ae6dc3dd5a2373dd5978c42ee50366c445b22a99bbfc662a",
+      "size": 2124,
       "category": "modifiable",
       "category_label": "指定範囲のみ変更可",
       "purpose": "写真帳の図形配置",
@@ -219,8 +261,8 @@
     },
     {
       "name": "xl/worksheets/sheet1.xml",
-      "sha256": "4ee7a9b01109ac4fabc44ccfc699673aeca09b2fb258c2586288bfb90c0b34a5",
-      "size": 830,
+      "sha256": "5e9ad474d688f52b8dcc5375b9a494d9fd2a5a6846c1e42cd5fab16795079f9c",
+      "size": 3362,
       "category": "modifiable",
       "category_label": "指定範囲のみ変更可",
       "purpose": "報告書シート",
@@ -228,8 +270,8 @@
     },
     {
       "name": "xl/worksheets/sheet2.xml",
-      "sha256": "280a510f457565505e6c4deb34d1f538c324de1a241ee21c8796fd554d757f4b",
-      "size": 388,
+      "sha256": "976bc2b9446ae25cccbdb7941afbacfc272817b5ccd4d04fdd28cfa83a0c2950",
+      "size": 1089,
       "category": "modifiable",
       "category_label": "指定範囲のみ変更可",
       "purpose": "写真帳シート",
@@ -248,8 +290,8 @@
     }
   ],
   "inspection": {
-    "inspector_version": "2.5.0-layout-preview",
-    "inspected_at": "2026-11-07T06:15:26Z",
+    "inspector_version": "2.6.0-form-profile",
+    "inspected_at": "2026-11-07T07:46:33Z",
     "sheets": [
       {
         "name": "報告書",
@@ -290,21 +332,22 @@
       "ctrl_props": 1,
       "vml": 1,
       "emf": 1,
-      "media_other_than_photo_slots": 1
+      "media_other_than_photo_slots": 1,
+      "in_cell_image_parts": 0
     },
     "blockers": []
   },
   "approval": {
-    "approval_id": "APV-20261107-f18346a4",
+    "approval_id": "APV-20261107-7aa24eb1",
     "approver": "サンプル承認者（架空）",
-    "approver_key_id": "ed25519:6d3174e26e4c7f69",
-    "approved_at": "2026-11-07T06:15:26Z",
-    "valid_until": "2027-11-07T06:15:26Z",
+    "approver_key_id": "ed25519:fb32c59fc97f60af",
+    "approved_at": "2026-11-07T07:46:33Z",
+    "valid_until": "2027-11-07T07:46:33Z",
     "review_statement": "承認者は、このひな形をExcelで開き、全シート（非表示を含む）、コメント、外部リンクの参照先、名前の定義、図形・画像・EMF、チェックボックス、文書情報を確認し、過去の案件の情報や不要な個人情報が含まれていないことを確認した。"
   },
   "signature": {
     "alg": "Ed25519",
-    "key_id": "ed25519:6d3174e26e4c7f69",
-    "value": "OlIYH17SjdDo2xHvSFN2fwxy4qm0zj1xmiaeNsW7SV7xNC25E/IgvSGoVRaFuaF8cvZ/Eu1/nviGH8DpzaBaAA=="
+    "key_id": "ed25519:fb32c59fc97f60af",
+    "value": "aM2U4+H+U8trhOUBDfYIXqRfzrHRPGP/YaqPbPmXsgO9VMMkUoJSPsl1nwNJ2f9ebZexpIc/ENIWKhYBld9xAg=="
   }
 }

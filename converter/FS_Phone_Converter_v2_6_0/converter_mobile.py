@@ -138,23 +138,21 @@ import stat
 
 import engine_policy as EP
 
-VERSION = '2.5.0-layout-preview'
+VERSION = '2.6.0-form-profile'
 # Kept for reference only. Since 2.3.3 the template must match a SIGNED approval manifest
 # (approval.verify_manifest) instead of this single hard-coded hash.
 LEGACY_COMPANY_TEMPLATE_SHA256 = '569966343fa14d98a84bb45ccc27f9a54cfacb30b161f3bd9cc2cd536cdd53cc'
 UNMAPPED_CASE_FIELDS = ('案件識別番号','対象区分','オーナー・テナント報告','対応業者への連絡',
                         '社内報告','報告先・提出状況','復旧・完了状況')
-MAX_PHOTOS = 3  # Exactly three fixed photo slots in this vetted source workbook.
+MAX_PHOTOS = 3  # photo slots of the 2026-10 form (the template decides; see form_profile)
 MAX_ZIP_INPUT = 160 * 1024 * 1024
 MAX_ZIP_MEMBERS = 800
 MAX_IMAGE_SIZE = 30 * 1024 * 1024
 MAX_IMAGE_PIXELS = 32_000_000
 MAX_TEXT_LENGTH = 2500
-PHOTO_SLOTS = [
-    ('image1.jpeg', 'P5', 'N7', 'N10', 'N13', 'rId1'),
-    ('image2.jpeg', 'P24', 'N26', 'N29', 'N32', 'rId2'),
-    ('image3.jpeg', 'P43', 'N45', 'N47', 'N50', 'rId3'),
-]
+# 2.6.0: the photo slots are derived from the template (form_profile.photo_plan).
+# The baseline (vetted 2026-10-17 report) keeps its 3 picture parts image1..3.jpeg.
+BASELINE_IMAGES = ('image1.jpeg', 'image2.jpeg', 'image3.jpeg')
 # Incident-specific fields of the original completed report; must be blanked on
 # every conversion. Header/static dropdown tables elsewhere are preserved.
 CLEAR_REPORT = {
@@ -172,13 +170,22 @@ CLEAR_REPORT.update(f'{col}{row}' for row in range(15,28) for col in ('C','G'))
 # template value must survive when the case leaves them empty (site name, and the
 # '：' placeholders of the notification means cells).
 import report_layout as _RL
+import form_profile as FP
 KEEP_TEMPLATE_IF_EMPTY = {'AP2','AP3'}  # means cells are always rewritten ('：' when unused)
 CLEAR_REPORT.update(_RL.REPORT_CELLS - KEEP_TEMPLATE_IF_EMPTY)
 CLEAR_REPORT.update({'AR33','AR35'})
-CLEAR_PHOTO = {'B1','P3'}
-for _, num, loc, desc, mark, _ in PHOTO_SLOTS:
-    CLEAR_PHOTO.update((num,loc,desc,mark))
-CLEAR_PHOTO.update(('N35','N53','N56'))  # remaining caption lines on third slot
+
+
+def clear_photo_cells(slots):
+    """Photo-sheet cells blanked before writing: title, date, every slot's number and caption lines."""
+    cells = {FP.PHOTO_TITLE[0], FP.PHOTO_DATE[0]}
+    for slot in slots:
+        cells.add(slot['number'])
+        cells.update(slot['captions'])
+    return cells
+
+
+CLEAR_PHOTO = clear_photo_cells(FP.DEFAULT_SLOTS)  # preview / reference only
 
 
 def xml_root(data):
@@ -359,10 +366,32 @@ def image_to_jpeg(data, size):
         return buf.getvalue(),source_size
 
 
-def read_photos(zip_path, rows, template, photo_actions=None):
+def photo_to_jpeg(data):
+    """2.6.0 blank form: the photo keeps its own shape (long edge <= 1600 px), no EXIF."""
+    if len(data)>MAX_IMAGE_SIZE:raise ValueError('Photo larger than 30MB')
+    with Image.open(io.BytesIO(data)) as src:
+        if src.format not in ('JPEG','PNG','WEBP'):raise ValueError('Unrecognized photo type')
+        if src.width*src.height>MAX_IMAGE_PIXELS:raise ValueError('Photo pixel count too large')
+        source_size=[src.width,src.height]
+        src=ImageOps.exif_transpose(src).convert('RGB')
+        src.thumbnail((1600,1600),Image.Resampling.LANCZOS)
+        buf=io.BytesIO();src.save(buf,'JPEG',quality=80,optimize=True,subsampling=0)
+        return buf.getvalue(),source_size,src.size
+
+
+def photo_part_name(plan, i):
+    """Media file name (under xl/media/) of photo i (0-based) for this template's plan."""
+    if plan['mode']=='baseline':return BASELINE_IMAGES[i]
+    return posixpath.basename(EP.GEN_MEDIA.format(i+1))
+
+
+def read_photos(zip_path, rows, template, photo_actions=None, plan=None):
     photo_actions=photo_actions or {}
     with zipfile.ZipFile(zip_path) as z,zipfile.ZipFile(template) as original:
         zip_guard(z)
+        if plan is None:plan=FP.analyze_zip(original)
+        if len(rows)>len(plan['slots']):
+            raise ValueError(f'写真が{len(rows)}枚あります。この様式の写真枠は{len(plan["slots"])}つです')
         names={}
         for item in z.infolist():
             if item.is_dir():continue
@@ -383,16 +412,19 @@ def read_photos(zip_path, rows, template, photo_actions=None):
             if checksum in hashes:
                 raise ValueError(f'写真{i+1}と写真{hashes[checksum]}が完全に同一です。編集画面で差し替えるか、片方を外してください')
             hashes[checksum]=i+1
-            member='xl/media/'+PHOTO_SLOTS[i][0]
-            with Image.open(io.BytesIO(original.read(member))) as im:
-                target_size=im.size
-            if max(target_size)>1600:
-                ratio=1600/max(target_size)
-                target_size=tuple(max(1,round(v*ratio)) for v in target_size)
-            images[PHOTO_SLOTS[i][0]],source_size=image_to_jpeg(data,target_size)
+            part=photo_part_name(plan,i)
+            if plan['mode']=='baseline':
+                with Image.open(io.BytesIO(original.read('xl/media/'+part))) as im:
+                    target_size=im.size
+                if max(target_size)>1600:
+                    ratio=1600/max(target_size)
+                    target_size=tuple(max(1,round(v*ratio)) for v in target_size)
+                images[part],source_size=image_to_jpeg(data,target_size)
+            else:
+                images[part],source_size,target_size=photo_to_jpeg(data)
             info.append({'number':i+1,'file':basename or '(元写真なし)',
                          'origin':origin,'source_size':source_size,
-                         'embedded_size':list(target_size),'embedded_bytes':len(images[PHOTO_SLOTS[i][0]]),'jpeg_quality':80,'max_long_edge':1600,'sha256':checksum,
+                         'embedded_size':list(target_size),'embedded_bytes':len(images[part]),'jpeg_quality':80,'max_long_edge':1600,'sha256':checksum,
                          'caption':row['写真右側の説明文']})
         return images,info
 
@@ -460,18 +492,19 @@ def scrub_orphan_shared_strings(shared_xml, sheets):
     return encode_xml(root),cleared
 
 
-def build_updates_with_notes(case, photos, timeline, today=None):
-    """2.5.0: lay the case out like completed company reports (see report_layout.py)."""
+def build_updates_with_notes(case, photos, timeline, today=None, slots=None):
+    """2.5.0: lay the case out like completed company reports (see report_layout.py).
+    2.6.0: photo slots come from the template (None = the 2026-10-31 form, for previews)."""
     import report_layout as RL
     incident_date=strict_datetime(case['発生日時'],'発生日時')
     issue_day=(incident_date.date()-datetime.date(1899,12,30)).days
     r,warn=RL.layout_report(case,timeline,case.get('_contacts') or [],strict_datetime,parse_bool,hhmm,today=today)
-    p,pwarn=RL.layout_photos(case,photos,issue_day,PHOTO_SLOTS)
+    p,pwarn=RL.layout_photos(case,photos,issue_day,slots or FP.DEFAULT_SLOTS)
     return r,p,warn+pwarn
 
 
-def build_updates(case, photos, timeline):
-    r,p,_=build_updates_with_notes(case,photos,timeline)
+def build_updates(case, photos, timeline, slots=None):
+    r,p,_=build_updates_with_notes(case,photos,timeline,slots=slots)
     return r,p
 
 
@@ -556,13 +589,95 @@ def check_company_report_package(z, phase='template'):
             'external_relationships_detected':0}
 
 
-def transform_package(template, report_updates, photo_updates, embedded, approval=None):
+CT_NS='http://schemas.openxmlformats.org/package/2006/content-types'
+DRAWING_CT='application/vnd.openxmlformats-officedocument.drawing+xml'
+SHEET_TAIL=('legacyDrawing','legacyDrawingHF','drawingHF','picture','oleObjects','controls',
+            'webPublishItems','tableParts','extLst')
+
+
+def _new_rid(existing, base):
+    i=1
+    while f'{base}{i}' in existing:i+=1
+    return f'{base}{i}'
+
+
+def _picture_anchor(cnv_id, number, rid, placement):
+    col,coff,row,roff,cx,cy=placement
+    X=lambda t:'{%s}%s'%(DML,t)
+    D=lambda t:'{%s}%s'%(DRAW,t)
+    anchor=ET.Element(X('oneCellAnchor'))
+    frm=ET.SubElement(anchor,X('from'))
+    for tag,val in (('col',col),('colOff',coff),('row',row),('rowOff',roff)):
+        ET.SubElement(frm,X(tag)).text=str(val)
+    ET.SubElement(anchor,X('ext'),cx=str(cx),cy=str(cy))
+    pic=ET.SubElement(anchor,X('pic'))
+    nv=ET.SubElement(pic,X('nvPicPr'))
+    ET.SubElement(nv,X('cNvPr'),id=str(cnv_id),name=f'写真 {number}')
+    ET.SubElement(ET.SubElement(nv,X('cNvPicPr')),D('picLocks'),noChangeAspect='1')
+    fill=ET.SubElement(pic,X('blipFill'))
+    blip=ET.SubElement(fill,D('blip'),nsmap={'r':REL})
+    blip.set('{%s}embed'%REL,rid)
+    ET.SubElement(ET.SubElement(fill,D('stretch')),D('fillRect'))
+    sp=ET.SubElement(pic,X('spPr'))
+    xfrm=ET.SubElement(sp,D('xfrm'))
+    ET.SubElement(xfrm,D('off'),x='0',y='0')
+    ET.SubElement(xfrm,D('ext'),cx=str(cx),cy=str(cy))
+    ET.SubElement(ET.SubElement(sp,D('prstGeom'),prst='rect'),D('avLst'))
+    ET.SubElement(anchor,X('clientData'))
+    return anchor
+
+
+def place_blank_photos(z, names, plan, sheet2_root, embedded):
+    """2.6.0 blank form: put each photo over its slot as a floating picture.
+
+    Existing drawing content and relationships are kept as they are; new parts use
+    the fixed names of engine_policy (GEN_*). sheet2_root gets a <drawing> element
+    only when the photo sheet had no drawing. Returns (changed parts, added parts).
+    """
+    tsheet=xml_root(z.read(EP.SHEET_PHOTO))
+    mdw=FP.max_digit_width(z.read('xl/styles.xml') if 'xl/styles.xml' in names else b'')
+    col_px,row_emu=FP.sheet_geometry(tsheet,mdw)
+    changes={};added={}
+    drawing=plan['photo_drawing']
+    if drawing:
+        droot=xml_root(z.read(drawing))
+        drels_name=plan['photo_drawing_rels'] or FP.rels_name(drawing)
+        drels=xml_root(z.read(drels_name)) if plan['photo_drawing_rels'] else ET.Element('{%s}Relationships'%PR,nsmap={None:PR})
+    else:
+        drawing=EP.GEN_DRAWING;drels_name=EP.GEN_DRAWING_RELS
+        droot=ET.Element('{%s}wsDr'%DML,nsmap={'xdr':DML,'a':DRAW})
+        drels=ET.Element('{%s}Relationships'%PR,nsmap={None:PR})
+        srels=xml_root(z.read(EP.SHEET_PHOTO_RELS)) if plan['photo_sheet_rels'] else ET.Element('{%s}Relationships'%PR,nsmap={None:PR})
+        rid=_new_rid({r.get('Id') for r in srels},'rIdHbDr')
+        ET.SubElement(srels,'{%s}Relationship'%PR,Id=rid,Type=FP.DRAWING_TYPE,Target='../drawings/'+posixpath.basename(EP.GEN_DRAWING))
+        el=ET.Element(Q('drawing'),nsmap={'r':REL})
+        el.set('{%s}id'%REL,rid)
+        tail={Q(t) for t in SHEET_TAIL}
+        sheet2_root.insert(next((i for i,c in enumerate(sheet2_root) if c.tag in tail),len(sheet2_root)),el)
+        (changes if plan['photo_sheet_rels'] else added)[EP.SHEET_PHOTO_RELS]=encode_xml(srels)
+    ids=[int(x.get('id')) for x in droot.iter('{%s}cNvPr'%DML) if (x.get('id') or '').isdigit()]
+    next_id=max(ids,default=1)+1
+    existing={r.get('Id') for r in drels}
+    for i in range(len(embedded)):
+        part=photo_part_name(plan,i);data=embedded[part]
+        with Image.open(io.BytesIO(data)) as im:w,h=im.size
+        rid=_new_rid(existing,'rIdHb');existing.add(rid)
+        ET.SubElement(drels,'{%s}Relationship'%PR,Id=rid,Type=REL+'/image',Target='../media/'+part)
+        droot.append(_picture_anchor(next_id+i,i+1,rid,FP.place(plan['slots'][i],col_px,row_emu,w,h)))
+        added['xl/media/'+part]=data
+    (changes if plan['photo_drawing'] else added)[drawing]=encode_xml(droot)
+    (changes if plan['photo_drawing_rels'] else added)[drels_name]=encode_xml(drels)
+    return changes,added
+
+
+def transform_package(template, report_updates, photo_updates, embedded, approval=None, plan=None):
     """Build the report package.
 
     approval=None   : v2.3.2 behaviour, stop on any risky part (unapproved template).
     approval=<dict> : a manifest already verified by approval.verify_manifest for THIS
                       file; approved parts (EMF, VML, checkboxes, extra sheets, links)
                       pass through and the output is verified part by part.
+    plan            : form_profile plan of this template (derived again when omitted).
     """
     if approval is not None:
         with open(template,'rb') as fh:
@@ -573,41 +688,57 @@ def transform_package(template, report_updates, photo_updates, embedded, approva
         names=set(z.namelist())
         if approval is None:
             check_company_report_package(z,'原本')
-        required=['xl/worksheets/sheet1.xml','xl/worksheets/sheet2.xml',
-                  'xl/drawings/drawing2.xml','xl/drawings/_rels/drawing2.xml.rels',
-                  'xl/sharedStrings.xml']+[f'xl/media/image{i}.jpeg' for i in (1,2,3)]
+        if plan is None:plan=(approval or {}).get('_plan') or FP.analyze_zip(z)
+        if plan['mode']=='refused':
+            raise ValueError('SAFETY STOP: このひな形は使えません：'+' / '.join(plan['problems'][:3]))
+        baseline=plan['mode']=='baseline'
+        if approval is None and not baseline:
+            raise ValueError('SAFETY STOP: 空様式から作るには承認済み一覧が必要です')
+        required=['xl/worksheets/sheet1.xml','xl/worksheets/sheet2.xml','xl/sharedStrings.xml']
+        if baseline:
+            required+=['xl/drawings/drawing2.xml','xl/drawings/_rels/drawing2.xml.rels']+['xl/media/'+n for n in BASELINE_IMAGES]
         if not set(required)<=names:raise ValueError('Unsupported original workbook parts')
+        if len(embedded)>len(plan['slots']):raise ValueError('写真が写真枠の数より多いです')
         sheet1,fc1=scrub_sheet(z.read(required[0]),CLEAR_REPORT,report_updates)
-        sheet2,fc2=scrub_sheet(z.read(required[1]),CLEAR_PHOTO,photo_updates)
+        sheet2,fc2=scrub_sheet(z.read(required[1]),clear_photo_cells(plan['slots']),photo_updates)
         shared,orphans=scrub_orphan_shared_strings(z.read('xl/sharedStrings.xml'),[sheet1,sheet2]+[
             z.read(n) for n in sorted(names) if re.fullmatch(r'xl/worksheets/sheet\d+\.xml',n) and n not in ('xl/worksheets/sheet1.xml','xl/worksheets/sheet2.xml')])
-        drawing=xml_root(z.read('xl/drawings/drawing2.xml'))
-        relationships=xml_root(z.read('xl/drawings/_rels/drawing2.xml.rels'))
-        rid_targets={r.get('Id'):posixpath.basename(r.get('Target','')) for r in relationships}
-        if {rid_targets.get('rId1'),rid_targets.get('rId2'),rid_targets.get('rId3')}!={'image1.jpeg','image2.jpeg','image3.jpeg'}:
-            raise ValueError('Unexpected photo relationship mapping')
-        removed_drawings=0; removed_markings=0
-        for anchor in list(drawing):
-            sp=anchor.find('xdr:sp',ns)
-            if sp is not None:
-                drawing.remove(anchor);removed_markings+=1;continue
-            pic=anchor.find('xdr:pic',ns)
-            if pic is None:continue
-            blip=pic.find('.//a:blip',ns)
-            if blip is None:raise ValueError('Unexpected photo shape')
-            rid=blip.get('{%s}embed'%REL)
-            filename=rid_targets.get(rid)
-            if filename not in ('image1.jpeg','image2.jpeg','image3.jpeg'):
-                raise ValueError('Unexpected image anchor')
-            if filename not in embedded:
-                drawing.remove(anchor);removed_drawings+=1
-        if removed_markings!=3 or removed_drawings!=3-len(embedded):
-            raise ValueError('Original drawing structure does not match the vetted baseline')
+        changes={};added={};remove_parts=set();removed_drawings=0;removed_markings=0
+        if baseline:
+            drawing=xml_root(z.read('xl/drawings/drawing2.xml'))
+            relationships=xml_root(z.read('xl/drawings/_rels/drawing2.xml.rels'))
+            rid_targets={r.get('Id'):posixpath.basename(r.get('Target','')) for r in relationships}
+            if {rid_targets.get('rId1'),rid_targets.get('rId2'),rid_targets.get('rId3')}!=set(BASELINE_IMAGES):
+                raise ValueError('Unexpected photo relationship mapping')
+            for anchor in list(drawing):
+                sp=anchor.find('xdr:sp',ns)
+                if sp is not None:
+                    drawing.remove(anchor);removed_markings+=1;continue
+                pic=anchor.find('xdr:pic',ns)
+                if pic is None:continue
+                blip=pic.find('.//a:blip',ns)
+                if blip is None:raise ValueError('Unexpected photo shape')
+                rid=blip.get('{%s}embed'%REL)
+                filename=rid_targets.get(rid)
+                if filename not in BASELINE_IMAGES:
+                    raise ValueError('Unexpected image anchor')
+                if filename not in embedded:
+                    drawing.remove(anchor);removed_drawings+=1
+            if removed_markings!=3 or removed_drawings!=3-len(embedded):
+                raise ValueError('Original drawing structure does not match the vetted baseline')
+            remove_parts=set('xl/media/'+filename for filename in BASELINE_IMAGES if filename not in embedded)
+            for r in list(relationships):
+                if rid_targets.get(r.get('Id')) in {posixpath.basename(n) for n in remove_parts}:
+                    relationships.remove(r)
+            changes['xl/drawings/drawing2.xml']=encode_xml(drawing)
+            changes['xl/drawings/_rels/drawing2.xml.rels']=encode_xml(relationships)
+            for name, data in embedded.items():changes['xl/media/'+name]=data
+        elif embedded:
+            s2=xml_root(sheet2)
+            c,added=place_blank_photos(z,names,plan,s2,embedded)
+            changes.update(c);sheet2=encode_xml(s2)
         remove_calc={'xl/calcChain.xml'} & names
-        remove_parts=set(remove_calc) | set('xl/media/'+filename for filename in ('image1.jpeg','image2.jpeg','image3.jpeg') if filename not in embedded)
-        for r in list(relationships):
-            if rid_targets.get(r.get('Id')) in {posixpath.basename(n) for n in remove_parts}:
-                relationships.remove(r)
+        remove_parts|=remove_calc
         # Rebuild calculation metadata: removed formula caches must be recalculated.
         workbook=xml_root(z.read('xl/workbook.xml'))
         calc=workbook.find('m:calcPr',ns)
@@ -632,29 +763,35 @@ def transform_package(template, report_updates, photo_updates, embedded, approva
             content_types=xml_root(z.read('[Content_Types].xml'))
             for override in list(content_types):
                 if override.get('PartName')=='/xl/calcChain.xml':content_types.remove(override)
+            if not baseline and embedded:
+                if not any(d.get('Extension','').lower()=='jpeg' for d in content_types.findall('{%s}Default'%CT_NS)):
+                    content_types.insert(0,ET.Element('{%s}Default'%CT_NS,Extension='jpeg',ContentType='image/jpeg'))
+                if EP.GEN_DRAWING in added:
+                    ET.SubElement(content_types,'{%s}Override'%CT_NS,PartName='/'+EP.GEN_DRAWING,ContentType=DRAWING_CT)
         else:content_types=None
-        changes={
+        changes.update({
             'xl/workbook.xml':encode_xml(workbook),
             'xl/worksheets/sheet1.xml':sheet1,'xl/worksheets/sheet2.xml':sheet2,
             'xl/sharedStrings.xml':shared,
-            'xl/drawings/drawing2.xml':encode_xml(drawing),
-            'xl/drawings/_rels/drawing2.xml.rels':encode_xml(relationships),
-        }
+        })
         if wb_rels is not None:changes['xl/_rels/workbook.xml.rels']=encode_xml(wb_rels)
         if content_types is not None:changes['[Content_Types].xml']=encode_xml(content_types)
         if 'docProps/core.xml' in names:
             changes['docProps/core.xml']=scrub_doc_properties(z.read('docProps/core.xml'),True)
         if 'docProps/app.xml' in names:
             changes['docProps/app.xml']=scrub_doc_properties(z.read('docProps/app.xml'),False)
-        for name, data in embedded.items():changes['xl/media/'+name]=data
+        if set(added)&names:raise ValueError('SAFETY STOP: 作る部品と同じ名前の部品がひな形にあります')
         buffer=io.BytesIO()
         with zipfile.ZipFile(buffer,'w') as outzip:
             for entry in z.infolist():
                 if entry.filename in remove_parts:continue
                 outzip.writestr(entry,changes.get(entry.filename,z.read(entry.filename)))
+            for name in sorted(added):
+                outzip.writestr(name,added[name],compress_type=zipfile.ZIP_DEFLATED)
     result=buffer.getvalue()
     log={
-        'changed_parts':sorted(changes),'deleted_parts':sorted(remove_parts),
+        'photo_mode':plan['mode'],'photo_slots':len(plan['slots']),
+        'changed_parts':sorted(changes),'added_parts':sorted(added),'deleted_parts':sorted(remove_parts),
         'cleared_formula_caches':fc1+fc2,'cleared_orphan_shared_strings':orphans,
         'removed_old_markings':removed_markings,'removed_unused_photo_anchors':removed_drawings}
     if approval is None:
@@ -662,10 +799,10 @@ def transform_package(template, report_updates, photo_updates, embedded, approva
             check_company_report_package(produced,'出力')
     else:
         allowed_report=set(CLEAR_REPORT)|set(report_updates)
-        allowed_photo=set(CLEAR_PHOTO)|set(photo_updates)
+        allowed_photo=clear_photo_cells(plan['slots'])|set(photo_updates)
         inputs=[str(v) for v in list(report_updates.values())+list(photo_updates.values()) if v not in (None,'')]
         log['part_verification']=verify_output_against_approval(
-            template,result,approval,allowed_report,allowed_photo,inputs)
+            template,result,approval,allowed_report,allowed_photo,inputs,plan=plan,photo_count=len(embedded))
     return result,log
 
 
@@ -695,10 +832,16 @@ def _text_of_cell(cell, shared):
     return ''
 
 
-def _check_sheet(tpl_bytes, out_bytes, allowed, label):
+def _check_sheet(tpl_bytes, out_bytes, allowed, label, added_drawing_rid=None):
     t=xml_root(tpl_bytes);o=xml_root(out_bytes)
     if dict(t.attrib)!=dict(o.attrib):_astop(label+': シートの設定が変わっています')
-    if [_c14n(x) for x in t if x.tag!=Q('sheetData')]!=[_c14n(x) for x in o if x.tag!=Q('sheetData')]:
+    def is_added(x):
+        return (added_drawing_rid is not None and x.tag==Q('drawing') and
+                x.get('{%s}id'%REL)==added_drawing_rid and not len(x) and len(x.attrib)==1)
+    if added_drawing_rid is not None:
+        if t.find('m:drawing',ns) is not None or sum(1 for x in o if is_added(x))!=1:
+            _astop(label+': 写真の図形配置への参照が想定と違います')
+    if [_c14n(x) for x in t if x.tag!=Q('sheetData')]!=[_c14n(x) for x in o if x.tag!=Q('sheetData') and not is_added(x)]:
         _astop(label+': セル以外の設定（結合・印刷範囲・入力規則など）が変わっています')
     # Check the entire sheetData structure, not just previously existing rows/cells.
     # An extra blank row or a duplicate cell could otherwise escape the dict-based
@@ -775,28 +918,108 @@ def _blank_props(xml_bytes, fields):
     return root
 
 
-def verify_output_against_approval(template, output_bytes, approval, allowed_report, allowed_photo, input_texts):
+BLANK_PICTURE_TAGS={'{%s}%s'%(DML,t) for t in ('oneCellAnchor','from','col','colOff','row','rowOff','ext','pic','nvPicPr',
+                     'cNvPr','cNvPicPr','blipFill','spPr','clientData')}|{'{%s}%s'%(DRAW,t) for t in (
+                     'picLocks','blip','stretch','fillRect','xfrm','off','ext','prstGeom','avLst')}
+
+
+def expected_blank_additions(plan, photo_count):
+    """Parts the engine may create for a blank form with this many photos (and nothing else)."""
+    if not photo_count:return set()
+    added={EP.GEN_MEDIA.format(i) for i in range(1,photo_count+1)}
+    if plan['photo_drawing']:
+        if not plan['photo_drawing_rels']:added.add(FP.rels_name(plan['photo_drawing']))
+    else:
+        added|={EP.GEN_DRAWING,EP.GEN_DRAWING_RELS}
+        if not plan['photo_sheet_rels']:added.add(EP.SHEET_PHOTO_RELS)
+    return added
+
+
+def _verify_blank_photos(a, b, plan, photo_count):
+    """Independent check of the pictures placed on a blank form. Returns the added drawing r:id (or None)."""
+    if not photo_count:return None
+    drawing=plan['photo_drawing'] or EP.GEN_DRAWING
+    drels=plan['photo_drawing_rels'] or FP.rels_name(drawing)
+    od=xml_root(b.read(drawing));orels=list(xml_root(b.read(drels)))
+    tchildren=list(xml_root(a.read(drawing))) if plan['photo_drawing'] else []
+    trels=list(xml_root(a.read(plan['photo_drawing_rels']))) if plan['photo_drawing_rels'] else []
+    if plan['photo_drawing'] and dict(xml_root(a.read(drawing)).attrib)!=dict(od.attrib):
+        _astop('写真帳の図形配置の設定が変わっています')
+    ochildren=list(od)
+    if [_c14n(x) for x in tchildren]!=[_c14n(x) for x in ochildren[:len(tchildren)]]:
+        _astop('写真帳の元の図形が変わりました')
+    if [_c14n(x) for x in trels]!=[_c14n(x) for x in orels[:len(trels)]]:
+        _astop('写真帳の元の図形の参照が変わりました')
+    new=ochildren[len(tchildren):];newrels=orels[len(trels):]
+    if len(new)!=photo_count or len(newrels)!=photo_count:
+        _astop('写真の図の数が写真の枚数と違います')
+    rid_number={}
+    for i,r in enumerate(newrels,1):
+        if (r.get('Type')!=REL+'/image' or r.get('TargetMode') is not None or
+                r.get('Target')!='../media/'+posixpath.basename(EP.GEN_MEDIA.format(i))):
+            _astop('写真の図の参照先が想定と違います')
+        rid_number[r.get('Id')]=i
+    X=lambda t:'{%s}%s'%(DML,t)
+    for i,anchor in enumerate(new,1):
+        if anchor.tag!=X('oneCellAnchor') or [c.tag for c in anchor]!=[X('from'),X('ext'),X('pic'),X('clientData')]:
+            _astop('写真の図の形が想定と違います')
+        if any(el.tag not in BLANK_PICTURE_TAGS for el in anchor.iter()):
+            _astop('写真の図に想定外の要素（リンク・説明文など）があります')
+        cnv=anchor.find('.//xdr:cNvPr',ns)
+        if set(cnv.attrib)!={'id','name'} or cnv.get('name')!=f'写真 {i}':
+            _astop('写真の図の名前が想定と違います')
+        blip=anchor.find('.//a:blip',ns)
+        if set(blip.attrib)!={'{%s}embed'%REL} or rid_number.get(blip.get('{%s}embed'%REL))!=i:
+            _astop('写真の図が別の画像を指しています')
+        slot=plan['slots'][i-1]
+        row=int(anchor.find('xdr:from/xdr:row',ns).text)+1;col=int(anchor.find('xdr:from/xdr:col',ns).text)+1
+        if not (slot['rows'][0]<=row<=slot['rows'][1] and slot['cols'][0]<=col<=slot['cols'][1]):
+            _astop(f'写真{i}が写真枠{i}の外に置かれています')
+    if plan['photo_drawing']:return None
+    # a new drawing: the photo sheet got exactly one new relationship to it
+    srels_t=list(xml_root(a.read(EP.SHEET_PHOTO_RELS))) if plan['photo_sheet_rels'] else []
+    srels_o=list(xml_root(b.read(EP.SHEET_PHOTO_RELS)))
+    if [_c14n(x) for x in srels_t]!=[_c14n(x) for x in srels_o[:len(srels_t)]] or len(srels_o)!=len(srels_t)+1:
+        _astop('写真シートの参照が想定外に変わりました')
+    r=srels_o[-1]
+    if r.get('Type')!=FP.DRAWING_TYPE or r.get('TargetMode') is not None or r.get('Target')!='../drawings/'+posixpath.basename(EP.GEN_DRAWING):
+        _astop('写真シートの参照先が想定と違います')
+    return r.get('Id')
+
+
+def verify_output_against_approval(template, output_bytes, approval, allowed_report, allowed_photo, input_texts,
+                                   plan=None, photo_count=None):
     listed={p['name']:p for p in approval['parts']}
     with zipfile.ZipFile(template) as a, zipfile.ZipFile(io.BytesIO(output_bytes)) as b:
         zip_guard(b)
+        if plan is None:plan=approval.get('_plan') or FP.analyze_zip(a)
+        baseline=plan['mode']=='baseline'
         tnames=set(a.namelist());onames=set(b.namelist())
         if tnames!=set(listed):_astop('原本の部品構成が承認済み一覧と違います')
         added=onames-tnames
-        if added-set(EP.GENERATE_PARTS):
-            _astop('承認されていない部品が出力に追加されました: '+', '.join(sorted(added)[:5]))
+        if baseline:
+            if added-set(EP.GENERATE_PARTS):
+                _astop('承認されていない部品が出力に追加されました: '+', '.join(sorted(added)[:5]))
+        else:
+            media=sorted(n for n in added if re.fullmatch(r'xl/media/hb_photo\d+\.jpeg',n))
+            count=len(media) if photo_count is None else photo_count
+            if added!=expected_blank_additions(plan,count):
+                _astop('承認されていない部品が出力に追加された、または写真の部品が足りません: '+', '.join(sorted(added)[:5]))
+            photo_count=count
         deleted=tnames-onames
-        bad_delete=deleted-set(EP.DELETE_PARTS)-set(EP.PHOTO_PARTS)
+        bad_delete=deleted-set(EP.DELETE_PARTS)-(set(EP.PHOTO_PARTS) if baseline else set())
         if bad_delete:_astop('削除が許可されていない部品が消えました: '+', '.join(sorted(bad_delete)[:5]))
         immutable_ok=0
         for name in sorted(tnames&onames):
-            cat=EP.category_for(name)
+            cat=EP.category_for(name,plan)
             if cat=='modifiable':continue
             if hashlib.sha256(b.read(name)).hexdigest()!=listed[name]['sha256']:
                 _astop('変更禁止の部品が変わりました: '+name)
             immutable_ok+=1
+        added_rid=None if baseline else _verify_blank_photos(a,b,plan,photo_count)
         # --- modifiable parts, each against its own rule ---
         cells_r=_check_sheet(a.read(EP.SHEET_REPORT),b.read(EP.SHEET_REPORT),allowed_report,'報告書シート')
-        cells_p=_check_sheet(a.read(EP.SHEET_PHOTO),b.read(EP.SHEET_PHOTO),allowed_photo,'写真帳シート')
+        cells_p=_check_sheet(a.read(EP.SHEET_PHOTO),b.read(EP.SHEET_PHOTO),allowed_photo,'写真帳シート',added_rid)
         # shared strings: same count, no reindexing; unreferenced entries must be empty
         ts_root=xml_root(a.read('xl/sharedStrings.xml'));os_root=xml_root(b.read('xl/sharedStrings.xml'))
         if dict(ts_root.attrib)!=dict(os_root.attrib):_astop('共有文字列の設定が変わっています')
@@ -817,20 +1040,21 @@ def verify_output_against_approval(template, output_bytes, approval, allowed_rep
             if _c14n(x)!=_c14n(y):
                 if i in used:_astop('使われている共有文字列が書き換わりました')
                 blanked+=1
-        # drawing of the photo sheet: only marking shapes and unused photo anchors removed
-        kept={posixpath.basename(n) for n in EP.PHOTO_PARTS if n in onames}
-        trels=xml_root(a.read('xl/drawings/_rels/drawing2.xml.rels'))
-        rid_to_file={r.get('Id'):posixpath.basename(r.get('Target','')) for r in trels}
-        def drop_anchor(anchor):
-            if anchor.find('xdr:sp',ns) is not None:return True
-            blip=anchor.find('.//a:blip',ns)
-            if blip is None:return False
-            return rid_to_file.get(blip.get('{%s}embed'%REL)) not in kept
-        if _c14n(_without(xml_root(a.read('xl/drawings/drawing2.xml')),drop_anchor))!=_c14n(xml_root(b.read('xl/drawings/drawing2.xml'))):
-            _astop('写真帳の図形が想定外に変わりました')
-        removed_files={posixpath.basename(n) for n in EP.PHOTO_PARTS}-kept
-        if _c14n(_without(trels,lambda r:posixpath.basename(r.get('Target','')) in removed_files))!=_c14n(xml_root(b.read('xl/drawings/_rels/drawing2.xml.rels'))):
-            _astop('写真帳の図形の参照が想定外に変わりました')
+        # drawing of the photo sheet (baseline): only marking shapes and unused photo anchors removed
+        kept={posixpath.basename(n) for n in EP.PHOTO_PARTS if n in onames} if baseline else set()
+        if baseline:
+            trels=xml_root(a.read('xl/drawings/_rels/drawing2.xml.rels'))
+            rid_to_file={r.get('Id'):posixpath.basename(r.get('Target','')) for r in trels}
+            def drop_anchor(anchor):
+                if anchor.find('xdr:sp',ns) is not None:return True
+                blip=anchor.find('.//a:blip',ns)
+                if blip is None:return False
+                return rid_to_file.get(blip.get('{%s}embed'%REL)) not in kept
+            if _c14n(_without(xml_root(a.read('xl/drawings/drawing2.xml')),drop_anchor))!=_c14n(xml_root(b.read('xl/drawings/drawing2.xml'))):
+                _astop('写真帳の図形が想定外に変わりました')
+            removed_files={posixpath.basename(n) for n in EP.PHOTO_PARTS}-kept
+            if _c14n(_without(trels,lambda r:posixpath.basename(r.get('Target','')) in removed_files))!=_c14n(xml_root(b.read('xl/drawings/_rels/drawing2.xml.rels'))):
+                _astop('写真帳の図形の参照が想定外に変わりました')
         # workbook.xml: only calcPr may differ, with exactly these attributes added
         tw=xml_root(a.read('xl/workbook.xml'));ow=xml_root(b.read('xl/workbook.xml'))
         tcalc=tw.find('m:calcPr',ns);ocalc=ow.find('m:calcPr',ns)
@@ -841,11 +1065,22 @@ def verify_output_against_approval(template, output_bytes, approval, allowed_rep
         is_calc=lambda e:e.tag==Q('calcPr')
         if _c14n(_without(tw,is_calc))!=_c14n(_without(ow,is_calc)):_astop('ブック設定が想定外に変わりました')
         # workbook rels and content types: only the calcChain entry removed
-        for part,pred in (('xl/_rels/workbook.xml.rels',lambda r:'calcChain' in (r.get('Target') or '')),
-                          ('[Content_Types].xml',lambda o:o.get('PartName')=='/xl/calcChain.xml')):
-            if part in tnames:
-                if _c14n(_without(xml_root(a.read(part)),pred))!=_c14n(xml_root(b.read(part))):
-                    _astop(part+' が想定外に変わりました（外部リンク等の参照は保持が必要）')
+        part='xl/_rels/workbook.xml.rels'
+        if part in tnames:
+            if _c14n(_without(xml_root(a.read(part)),lambda r:'calcChain' in (r.get('Target') or '')))!=_c14n(xml_root(b.read(part))):
+                _astop(part+' が想定外に変わりました（外部リンク等の参照は保持が必要）')
+        part='[Content_Types].xml'
+        if part in tnames:
+            tct=_without(xml_root(a.read(part)),lambda o:o.get('PartName')=='/xl/calcChain.xml')
+            oct_=xml_root(b.read(part))
+            def addition(el):
+                if baseline or not photo_count:return False
+                if el.tag=='{%s}Default'%CT_NS and dict(el.attrib)=={'Extension':'jpeg','ContentType':'image/jpeg'}:
+                    return not any(d.get('Extension','').lower()=='jpeg' for d in tct.findall('{%s}Default'%CT_NS))
+                return (EP.GEN_DRAWING in added and el.tag=='{%s}Override'%CT_NS and
+                        dict(el.attrib)=={'PartName':'/'+EP.GEN_DRAWING,'ContentType':DRAWING_CT})
+            if _c14n(tct)!=_c14n(_without(oct_,addition)):
+                _astop(part+' が想定外に変わりました（外部リンク等の参照は保持が必要）')
         # document properties: only the listed fields emptied
         legacy_props=[]
         for part,fields in (('docProps/core.xml',EP.DOCPROP_CORE_BLANK),('docProps/app.xml',EP.DOCPROP_APP_BLANK)):
@@ -856,7 +1091,13 @@ def verify_output_against_approval(template, output_bytes, approval, allowed_rep
                     _astop(part+' の作成者などが消えていない、または他の文書情報が変わりました')
         # photo slots: new JPEG, same frame size, no EXIF
         photos_checked=0
-        for n in EP.PHOTO_PARTS:
+        if not baseline:
+            for n in sorted(x for x in added if x.startswith('xl/media/')):
+                with Image.open(io.BytesIO(b.read(n))) as im:
+                    if im.format!='JPEG' or max(im.size)>1600:_astop('写真の画像の形式・大きさが違います: '+n)
+                    if len(im.getexif()) or 'exif' in im.info:_astop('写真に撮影情報（EXIF）が残っています: '+n)
+                photos_checked+=1
+        for n in (EP.PHOTO_PARTS if baseline else ()):
             if n not in onames:continue
             with Image.open(io.BytesIO(a.read(n))) as im:tsize=im.size
             if max(tsize)>1600:
@@ -897,23 +1138,30 @@ def verify_output_against_approval(template, output_bytes, approval, allowed_rep
                 _astop('過去の案件の文字列が出力に残っています（消去対象外のセル、または文書情報）')
     return {'approval_id':approval['approval']['approval_id'],
             'immutable_parts_byte_identical':immutable_ok,
-            'modifiable_parts_checked':sorted(n for n in tnames&onames if EP.category_for(n)=='modifiable'),
+            'photo_mode':plan['mode'],
+            'modifiable_parts_checked':sorted(n for n in tnames&onames if EP.category_for(n,plan)=='modifiable'),
             'deleted_parts':sorted(deleted),'added_parts':sorted(added),
             'changed_cells_report':len(cells_r),'changed_cells_photo':len(cells_p),
             'blanked_shared_strings':blanked,'photos_checked':photos_checked,
             'legacy_markers_checked':len(legacy)}
 
 
-def verify_package(source, output_bytes, photo_count, expected,old_markers):
+def verify_package(source, output_bytes, photo_count, expected,old_markers,plan=None):
     with zipfile.ZipFile(source) as a,zipfile.ZipFile(io.BytesIO(output_bytes)) as b:
         zip_guard(b)
+        if plan is None:plan=FP.analyze_zip(a)
         for part in a.namelist():
             if part.lower().endswith('.emf') or '/printerSettings/' in part:
                 if b.read(part)!=a.read(part):raise ValueError('Preservation failure: '+part)
-        rel=b.read('xl/drawings/_rels/drawing2.xml.rels')
-        draw=b.read('xl/drawings/drawing2.xml')
-        if len(xml_root(draw).findall('.//xdr:pic',ns))!=photo_count:raise ValueError('Photo anchor count incorrect')
-        if len(xml_root(rel))!=photo_count:raise ValueError('Photo reference count incorrect')
+        if plan['mode']=='baseline':
+            rel=b.read('xl/drawings/_rels/drawing2.xml.rels')
+            draw=b.read('xl/drawings/drawing2.xml')
+            if len(xml_root(draw).findall('.//xdr:pic',ns))!=photo_count:raise ValueError('Photo anchor count incorrect')
+            if len(xml_root(rel))!=photo_count:raise ValueError('Photo reference count incorrect')
+        elif photo_count:
+            draw=xml_root(b.read(plan['photo_drawing'] or EP.GEN_DRAWING))
+            before=len(xml_root(a.read(plan['photo_drawing'])).findall('.//xdr:pic',ns)) if plan['photo_drawing'] else 0
+            if len(draw.findall('.//xdr:pic',ns))-before!=photo_count:raise ValueError('Photo anchor count incorrect')
         sheet=xml_root(b.read('xl/worksheets/sheet1.xml'))
         pic_sheet=xml_root(b.read('xl/worksheets/sheet2.xml'))
         def text_at(root,addr):
@@ -923,8 +1171,9 @@ def verify_package(source, output_bytes, photo_count, expected,old_markers):
             if inline is not None:return ''.join(inline.itertext())
             v=c.find('m:v',ns)
             return v.text if v is not None else None
-        for root,addr,val in [(sheet,'G6',expected['title']),(sheet,'AP6',expected['location']),
-                              (pic_sheet,'N10',expected['first_description'])]:
+        checks=[(sheet,'G6',expected['title']),(sheet,'AP6',expected['location']),(pic_sheet,FP.PHOTO_TITLE[0],expected['title'])]
+        checks+=[(pic_sheet,slot['number'],str(i+1)) for i,slot in enumerate(plan['slots'][:photo_count])]
+        for root,addr,val in checks:
             if text_at(root,addr)!=val:raise ValueError('Output verification failed: '+addr)
         for xml in (sheet,pic_sheet):
             for c in xml.findall('.//m:sheetData/m:row/m:c',ns):
@@ -1031,13 +1280,13 @@ def make_report_from_homebox(package, template, out, audit_path=None,
 
 def _finish_report(sources,hashes_before,output,audit,corp,zp,case,photo_rows,timeline,approved,
                    photo_actions,source_total,input_info):
-    embedded,details=read_photos(zp,photo_rows,corp,photo_actions)
-    report_update,photo_update,layout_warnings=build_updates_with_notes(case,photo_rows,timeline)
-    content,change_log=transform_package(corp,report_update,photo_update,embedded,approval=approved)
+    plan=approved['_plan']
+    embedded,details=read_photos(zp,photo_rows,corp,photo_actions,plan)
+    report_update,photo_update,layout_warnings=build_updates_with_notes(case,photo_rows,timeline,slots=plan['slots'])
+    content,change_log=transform_package(corp,report_update,photo_update,embedded,approval=approved,plan=plan)
     expected={'title':safe_text(case['件名']),
-              'location':safe_text(case['発生場所']),
-              'first_description':(str(photo_rows[0]['写真右側の説明文']).strip().split('\n')[0].strip() if photo_rows else None)}
-    verified=verify_package(corp,content,len(photo_rows),expected,legacy_markers_from_template(corp))
+              'location':safe_text(case['発生場所'])}
+    verified=verify_package(corp,content,len(photo_rows),expected,legacy_markers_from_template(corp),plan)
     review={
         'status':'TEST_DRAFT_NOT_APPROVED','version':VERSION,
         'project_case_id':case['ID'],'project_title':case.get('件名'),
@@ -1053,7 +1302,8 @@ def _finish_report(sources,hashes_before,output,audit,corp,zp,case,photo_rows,ti
             'Unmapped Field Survey inputs are listed in unmapped_nonempty_fields and need manual review',
             'All formula-derived second-page fields must be recalculated in desktop Excel',
             'Printed layout and existing pictures, shapes, EMF; do not submit without approval'],
-        'known_limitations':['Only templates with a signed approval manifest of the 2026-10-17 layout','One chosen incident, 0-3 photos and <=8 timeline rows',
+        'form':FP.summary(plan),
+        'known_limitations':['Only templates with a signed approval manifest of the 2026-10 form (report boxes checked, photo slots derived)','One chosen incident, photos up to the number of photo slots, report rows as laid out',
             'No direct Field Survey annotations drawn on images','Unmapped questionnaire columns require manual review',
             'Photo source is retained in the original photos ZIP; embedded images are downscaled'],
         'checks':verified,'ooxml':change_log,

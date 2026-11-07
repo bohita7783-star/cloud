@@ -1,6 +1,6 @@
 {
   "status": "TEST_DRAFT_NOT_APPROVED",
-  "version": "2.5.0-layout-preview",
+  "version": "2.6.0-form-profile",
   "project_case_id": "ID_B",
   "project_title": "CASE_B_VISIBLE_20261107",
   "photo_count": 1,
@@ -29,9 +29,9 @@
     }
   ],
   "source_hashes_sha256": {
-    "synthetic_field_survey.xlsx": "a259123e9dc1f227b277fcc9baf8a723eea6b4cee4a58fcdd6282071f75f2b84",
-    "synthetic_photos.zip": "f67cedaca9a65f246dda434d0d5ce61792b88561f42c886c9344da365b36ffd9",
-    "synthetic_blank_template.xlsx": "0065aff3982c625af951215e94d01719d8e3c102720bbf57a068d42c8623c17d"
+    "synthetic_field_survey.xlsx": "44e89f734876ca084d59e7712b508571726c4bb30de4fe670fe87f82f5f5ecb3",
+    "synthetic_photos.zip": "b6e6d4a6efb22f9e931f7a3506657923e0a4f90c87a9348b54d1bfff378fca8c",
+    "synthetic_blank_template.xlsx": "c4595a0af6eef284801d23fede67a7f2574023b9ed2239e311fb9cc2fb199267"
   },
   "selected_photo_row_ids": [
     "P_B"
@@ -48,9 +48,51 @@
     "All formula-derived second-page fields must be recalculated in desktop Excel",
     "Printed layout and existing pictures, shapes, EMF; do not submit without approval"
   ],
+  "form": {
+    "profile_id": "genba-ijou-sokuho-2026-10",
+    "photo_mode": "baseline",
+    "photo_slots": [
+      {
+        "picture": "B5:L21",
+        "number": "P5",
+        "captions": [
+          "N7",
+          "N10",
+          "N13",
+          "N16",
+          "N19"
+        ]
+      },
+      {
+        "picture": "B24:L40",
+        "number": "P24",
+        "captions": [
+          "N26",
+          "N29",
+          "N32",
+          "N35",
+          "N38"
+        ]
+      },
+      {
+        "picture": "B43:L58",
+        "number": "P43",
+        "captions": [
+          "N45",
+          "N47",
+          "N50",
+          "N53",
+          "N56"
+        ]
+      }
+    ],
+    "photo_drawing": "xl/drawings/drawing2.xml",
+    "photo_drawing_rels": "xl/drawings/_rels/drawing2.xml.rels",
+    "photo_sheet_rels": true
+  },
   "known_limitations": [
-    "Only templates with a signed approval manifest of the 2026-10-17 layout",
-    "One chosen incident, 0-3 photos and <=8 timeline rows",
+    "Only templates with a signed approval manifest of the 2026-10 form (report boxes checked, photo slots derived)",
+    "One chosen incident, photos up to the number of photo slots, report rows as laid out",
     "No direct Field Survey annotations drawn on images",
     "Unmapped questionnaire columns require manual review",
     "Photo source is retained in the original photos ZIP; embedded images are downscaled"
@@ -64,6 +106,8 @@
     "formula_caches_cleared": true
   },
   "ooxml": {
+    "photo_mode": "baseline",
+    "photo_slots": 3,
     "changed_parts": [
       "[Content_Types].xml",
       "docProps/app.xml",
@@ -77,6 +121,7 @@
       "xl/worksheets/sheet1.xml",
       "xl/worksheets/sheet2.xml"
     ],
+    "added_parts": [],
     "deleted_parts": [
       "xl/calcChain.xml",
       "xl/media/image2.jpeg",
@@ -87,8 +132,9 @@
     "removed_old_markings": 3,
     "removed_unused_photo_anchors": 2,
     "part_verification": {
-      "approval_id": "APV-20261107-f18346a4",
+      "approval_id": "APV-20261107-7aa24eb1",
       "immutable_parts_byte_identical": 11,
+      "photo_mode": "baseline",
       "modifiable_parts_checked": [
         "[Content_Types].xml",
         "docProps/app.xml",
@@ -109,40 +155,41 @@
       ],
       "added_parts": [],
       "changed_cells_report": 25,
-      "changed_cells_photo": 4,
+      "changed_cells_photo": 5,
       "blanked_shared_strings": 7,
       "photos_checked": 1,
       "legacy_markers_checked": 10
     }
   },
-  "layout_version": "genba-ijou-sokuho-2026-10-17/layout-2.5.0",
+  "layout_version": "genba-ijou-sokuho-2026-10/layout-2.6.0",
   "layout_warnings": [],
   "approval": {
-    "approval_id": "APV-20261107-f18346a4",
+    "approval_id": "APV-20261107-7aa24eb1",
     "approver": "サンプル承認者（架空）",
-    "approver_key_id": "ed25519:6d3174e26e4c7f69",
-    "approved_at": "2026-11-07T06:15:26Z",
-    "valid_until": "2027-11-07T06:15:26Z"
+    "approver_key_id": "ed25519:fb32c59fc97f60af",
+    "approved_at": "2026-11-07T07:46:33Z",
+    "valid_until": "2027-11-07T07:46:33Z"
   },
   "approval_manifest": {
     "file": "approval_manifest.approved_sample.json",
-    "sha256": "f7bd5b1aa52aacdce359b6e956de978113080fb3eaaeed9150d14e74ab21e1f2",
-    "template_sha256": "0065aff3982c625af951215e94d01719d8e3c102720bbf57a068d42c8623c17d",
-    "trusted_keys_sha256": "d849892e5acfe34d1616ec3786ec564c34d955b88bcb00ecee348f9e489c32d6"
+    "sha256": "a0b560fa7102321cf7fe2c269097d80662572fe694a996196af5f368b59b7624",
+    "template_sha256": "c4595a0af6eef284801d23fede67a7f2574023b9ed2239e311fb9cc2fb199267",
+    "trusted_keys_sha256": "6184387f30425e4e008f7534e8856a362b224798afdb0d44da1483381428b3c9"
   },
   "program": {
-    "version": "2.5.0-layout-preview",
-    "engine_policy_version": "report-2026-10-17/engine-2.5.0",
+    "version": "2.6.0-form-profile",
+    "engine_policy_version": "report-2026-10/engine-2.6.0",
     "file_sha256": {
-      "converter_mobile.py": "42cf9bd2f433a239842f1aa5596e163d7906d127d951114bc7e4bc6f40d8355f",
-      "approval.py": "145c97e6f9743ce5cdbf26ba363872fd7b671b5cae4e1833f5fca5103c797ded",
-      "engine_policy.py": "16de41b8bc995e567fde88d86888271b1cbbfe4a6f71b285a6b087800202fbe6",
+      "converter_mobile.py": "7265ef528852554f522f619920b35ffb8254d57a9f0dcab81913158c6f8f1679",
+      "approval.py": "5c2bf4022defc3804a85d2b250db89446c911804ba17dad61b0e60197cef224a",
+      "engine_policy.py": "7dff2be7812d2e4492cc3adc69068ae8a3ee1c8ab77836ee29b49bd83262a322",
       "case_exports.py": "5ed6b105d799afdd6b7263fb413a1ac9d76f7f886a7d6798f2fda055710d9a4c"
     }
   },
   "part_verification": {
-    "approval_id": "APV-20261107-f18346a4",
+    "approval_id": "APV-20261107-7aa24eb1",
     "immutable_parts_byte_identical": 11,
+    "photo_mode": "baseline",
     "modifiable_parts_checked": [
       "[Content_Types].xml",
       "docProps/app.xml",
@@ -163,7 +210,7 @@
     ],
     "added_parts": [],
     "changed_cells_report": 25,
-    "changed_cells_photo": 4,
+    "changed_cells_photo": 5,
     "blanked_shared_strings": 7,
     "photos_checked": 1,
     "legacy_markers_checked": 10

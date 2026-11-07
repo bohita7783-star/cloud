@@ -6,12 +6,25 @@
 | 項目 | 内容 |
 |---|---|
 | ファイル名 | synthetic_blank_template.xlsx |
-| ファイル全体のSHA-256 | `0065aff3982c625af951215e94d01719d8e3c102720bbf57a068d42c8623c17d` |
-| サイズ | 15,158 バイト |
-| 様式の種類 | genba-ijou-sokuho-2026-10-17 |
-| 変換ツールの変更範囲の版 | report-2026-10-17/engine-2.5.0 |
-| 検査日時（UTC） | 2026-11-07T06:15:26Z |
-| 検査ツール | 2.5.0-layout-preview |
+| ファイル全体のSHA-256 | `c4595a0af6eef284801d23fede67a7f2574023b9ed2239e311fb9cc2fb199267` |
+| サイズ | 19,963 バイト |
+| 様式の種類 | genba-ijou-sokuho-2026-10 |
+| 変換ツールの変更範囲の版 | report-2026-10/engine-2.6.0 |
+| 検査日時（UTC） | 2026-11-07T07:46:33Z |
+| 検査ツール | 2.6.0-form-profile |
+
+## 様式と写真の入れ方（ファイルの枠の形から自動判定）
+
+- 対応している様式：現場異常速報（2026年10月の配置）（報告書シートの書き込み先96か所の枠の位置を照合）
+- 写真の入れ方：**旧方式（検証済みの2026-10-17記入済み報告書を原本にする）**
+
+| 写真枠 | 写真の範囲 | 番号 | 説明の行（上から） |
+|---|---|---|---|
+| 1 | B5:L21 | P5 | N7、N10、N13、N16、N19 |
+| 2 | B24:L40 | P24 | N26、N29、N32、N35、N38 |
+| 3 | B43:L58 | P43 | N45、N47、N50、N53、N56 |
+
+> 写真枠の位置は、このファイルの結合セルから読み取っています。Excelで写真シートを開き、上の範囲が写真・番号・説明の欄と合っているか確認してください。
 
 ## シート構成
 
@@ -32,6 +45,7 @@
 | VML図形 | 1 | チェックボックス・コメント枠の正体 |
 | EMF画像 | 1 | 各シートの図・ロゴ |
 | 写真枠以外の画像 | 1 | 各シートの図・画像に過去の写真が無いか |
+| セル内画像の部品 | 0 | 記入例など他のシートのセル内画像（前の案件の写真が無いか） |
 
 外部参照のある部品（参照先は表示しません）:
 - xl/externalLinks/_rels/externalLink1.xml.rels: 1件（ネットワーク/ファイル（externalLinkPath））
@@ -54,8 +68,8 @@
 | xl/ctrlProps/ctrlProp1.xml | フォームコントロール（チェックボックス等） | 変更禁止 | 要確認の内部部品 | 164 | `c83c7b4409a81f23` |
 | xl/drawings/_rels/drawing1.xml.rels | 図形の参照 | 変更禁止 |  | 291 | `484425fa27604290` |
 | xl/drawings/_rels/drawing2.xml.rels | 写真帳の図形の参照 | 指定範囲のみ変更可 |  | 564 | `c7b29c0b1f134341` |
-| xl/drawings/drawing1.xml | 図形配置 | 変更禁止 |  | 410 | `ed9ff6d8a0480ce4` |
-| xl/drawings/drawing2.xml | 写真帳の図形配置 | 指定範囲のみ変更可 |  | 776 | `e79b48315ad58c96` |
+| xl/drawings/drawing1.xml | 図形配置 | 変更禁止 |  | 634 | `5f474a5af63d017b` |
+| xl/drawings/drawing2.xml | 写真帳の図形配置 | 指定範囲のみ変更可 |  | 2,124 | `34a76a3857aed967` |
 | xl/drawings/vmlDrawing1.vml | VML図形（チェックボックス・コメント枠など） | 変更禁止 | VML図形 | 91 | `0f37daf06c1b8614` |
 | xl/externalLinks/_rels/externalLink1.xml.rels | 外部ブックへのリンク | 変更禁止 | 要確認の内部部品 | 361 | `deabcfb99ac45757` |
 | xl/externalLinks/externalLink1.xml | 外部ブックへのリンク | 変更禁止 | 要確認の内部部品 | 256 | `afdcf0cc80374d73` |
@@ -67,8 +81,8 @@
 | xl/workbook.xml | ブック設定 | 指定範囲のみ変更可 |  | 413 | `7acdd2adf62a3906` |
 | xl/worksheets/_rels/sheet1.xml.rels | ワークシートの参照 | 変更禁止 |  | 591 | `1d3f2ffdabb32e79` |
 | xl/worksheets/_rels/sheet2.xml.rels | ワークシートの参照 | 変更禁止 |  | 298 | `8d64d6eb2217d154` |
-| xl/worksheets/sheet1.xml | 報告書シート | 指定範囲のみ変更可 |  | 830 | `4ee7a9b01109ac4f` |
-| xl/worksheets/sheet2.xml | 写真帳シート | 指定範囲のみ変更可 |  | 388 | `280a510f45756550` |
+| xl/worksheets/sheet1.xml | 報告書シート | 指定範囲のみ変更可 |  | 3,362 | `5e9ad474d688f52b` |
+| xl/worksheets/sheet2.xml | 写真帳シート | 指定範囲のみ変更可 |  | 1,089 | `976bc2b9446ae25c` |
 | xl/worksheets/sheet3.xml | ワークシート（変換ツールは触らない） | 変更禁止 | 変換ツールが触らない追加シート | 430 | `b7f32cca9e90a583` |
 
 ## 変更区分の意味
@@ -78,15 +92,15 @@
   - xl/worksheets/sheet1.xml（報告書シート）: 入力欄として指定されたセルの値のみ。数式の計算済みの値は消去
   - xl/worksheets/sheet2.xml（写真帳シート）: 写真番号・場所・説明・加工指示のセルの値のみ。数式の計算済みの値は消去
   - xl/sharedStrings.xml（共有文字列）: 参照されなくなった文字列の中身を空にする（番号は変えない）
-  - xl/drawings/drawing2.xml（写真帳の図形配置）: 旧加工指示の図形と未使用の写真枠を外す
-  - xl/drawings/_rels/drawing2.xml.rels（写真帳の図形の参照）: 未使用の写真枠への参照を外す
   - xl/workbook.xml（ブック設定）: 再計算の指定（calcPr）のみ
   - xl/_rels/workbook.xml.rels（ブックの参照）: 計算順序（calcChain）への参照を外す。外部リンク等は保持
-  - [Content_Types].xml（部品の種類一覧）: 計算順序（calcChain）の登録を外す
+  - [Content_Types].xml（部品の種類一覧）: 計算順序（calcChain）の登録を外す。空様式では写真の画像・図形配置の登録を足す
   - docProps/core.xml（文書情報）: 作成者・更新者・題名などを空にする
   - docProps/app.xml（アプリ情報）: 会社名・管理者を空にする
+  - xl/drawings/drawing2.xml（写真帳の図形配置）: 旧加工指示の図形と未使用の写真枠を外す
+  - xl/drawings/_rels/drawing2.xml.rels（写真帳の図形の参照）: 未使用の写真枠への参照を外す
   - xl/media/image1.jpeg（写真枠の画像）: 新しい写真に差し替え。使わない枠は削除
   - xl/media/image2.jpeg（写真枠の画像）: 新しい写真に差し替え。使わない枠は削除
   - xl/media/image3.jpeg（写真枠の画像）: 新しい写真に差し替え。使わない枠は削除
 - **削除予定**: 変換時に削除します。xl/calcChain.xml（数式を再計算させるため削除）
-- **生成予定**: この版では新しく作る部品はありません。それ以外の部品が増えたら停止します。
+- **生成予定**: 新しく作る部品はありません。それ以外の部品が増えたら停止します。

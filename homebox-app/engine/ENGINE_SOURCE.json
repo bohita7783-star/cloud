@@ -1,13 +1,14 @@
 {
-  "converter_release": "converter/FS_Phone_Converter_v2_5_0",
-  "converter_version": "2.5.0-layout-preview",
+  "converter_release": "converter/FS_Phone_Converter_v2_6_0",
+  "converter_version": "2.6.0-form-profile",
   "note": "変換ツールのリリースと同じファイル。ここで直接編集しない（変換ツール側で直し、テストしてから複製する）。",
   "sha256": {
-    "approval.py": "145c97e6f9743ce5cdbf26ba363872fd7b671b5cae4e1833f5fca5103c797ded",
+    "approval.py": "5c2bf4022defc3804a85d2b250db89446c911804ba17dad61b0e60197cef224a",
     "case_exports.py": "5ed6b105d799afdd6b7263fb413a1ac9d76f7f886a7d6798f2fda055710d9a4c",
-    "converter_mobile.py": "42cf9bd2f433a239842f1aa5596e163d7906d127d951114bc7e4bc6f40d8355f",
-    "engine_policy.py": "16de41b8bc995e567fde88d86888271b1cbbfe4a6f71b285a6b087800202fbe6",
+    "converter_mobile.py": "7265ef528852554f522f619920b35ffb8254d57a9f0dcab81913158c6f8f1679",
+    "engine_policy.py": "7dff2be7812d2e4492cc3adc69068ae8a3ee1c8ab77836ee29b49bd83262a322",
+    "form_profile.py": "626e0259a9a88a021f97746a97462569f43fdb37db02d7583dcb1fd6c3c1ad77",
     "homebox_adapter.py": "5c9d29b522c245edb9475c262f131a8976ec2caac6ea5b04547d823ecdef0a75",
-    "report_layout.py": "24caac3a99b57aa274593191642a1596818dc543d705caf58e96ae176c26f747"
+    "report_layout.py": "098604dc7db1595a6822ecfb8d7d83284979270a51c41f34dafaf61b08bea39a"
   }
 }
