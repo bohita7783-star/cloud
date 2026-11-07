@@ -1,0 +1,184 @@
+{
+  "schema": "hb-ledger-fields/1",
+  "app_version": "0.1.3",
+  "revision": 1,
+  "fields": [
+    {
+      "key": "maker",
+      "label": "製造者名",
+      "extra": false,
+      "active": true,
+      "aliases": []
+    },
+    {
+      "key": "equip_no",
+      "label": "機器番号",
+      "extra": false,
+      "active": true,
+      "aliases": []
+    },
+    {
+      "key": "serial_no",
+      "label": "製造番号",
+      "extra": false,
+      "active": true,
+      "aliases": []
+    },
+    {
+      "key": "made",
+      "label": "製造年月日",
+      "extra": false,
+      "active": true,
+      "aliases": []
+    },
+    {
+      "key": "installed",
+      "label": "設置年月日",
+      "extra": false,
+      "active": true,
+      "aliases": []
+    },
+    {
+      "key": "location",
+      "label": "設置場所",
+      "extra": false,
+      "active": true,
+      "aliases": []
+    },
+    {
+      "key": "kind_mass",
+      "label": "種類と質量",
+      "extra": false,
+      "active": true,
+      "aliases": []
+    },
+    {
+      "key": "motor_maker",
+      "label": "電動機メーカー",
+      "extra": false,
+      "active": true,
+      "aliases": []
+    },
+    {
+      "key": "motor_kw",
+      "label": "電動機出力",
+      "extra": false,
+      "active": true,
+      "aliases": [],
+      "unit": "kW"
+    },
+    {
+      "key": "rated_a",
+      "label": "定格電流",
+      "extra": false,
+      "active": true,
+      "aliases": [],
+      "unit": "A"
+    },
+    {
+      "key": "tank_volume",
+      "label": "圧力タンク容量",
+      "extra": false,
+      "active": true,
+      "aliases": [],
+      "unit": "L"
+    },
+    {
+      "key": "bore",
+      "label": "口径",
+      "extra": false,
+      "active": true,
+      "aliases": []
+    },
+    {
+      "key": "head",
+      "label": "揚程",
+      "extra": false,
+      "active": true,
+      "aliases": [],
+      "unit": "m"
+    },
+    {
+      "key": "motor_type",
+      "label": "電動機形式",
+      "extra": false,
+      "active": true,
+      "aliases": []
+    },
+    {
+      "key": "voltage_class",
+      "label": "電圧区分",
+      "extra": false,
+      "active": true,
+      "aliases": []
+    },
+    {
+      "key": "rpm",
+      "label": "回転数",
+      "extra": false,
+      "active": true,
+      "aliases": [],
+      "unit": "min⁻¹"
+    },
+    {
+      "key": "life",
+      "label": "標準耐用年数",
+      "extra": false,
+      "active": true,
+      "aliases": [],
+      "unit": "年"
+    },
+    {
+      "key": "model",
+      "label": "型式",
+      "extra": true,
+      "active": true,
+      "aliases": []
+    },
+    {
+      "key": "system",
+      "label": "系統",
+      "extra": true,
+      "active": true,
+      "aliases": []
+    },
+    {
+      "key": "rated_v",
+      "label": "定格電圧",
+      "extra": true,
+      "active": true,
+      "aliases": [],
+      "unit": "V"
+    },
+    {
+      "key": "airflow",
+      "label": "風量",
+      "extra": true,
+      "active": true,
+      "aliases": [],
+      "unit": "m³/min"
+    },
+    {
+      "key": "cycle",
+      "label": "点検周期",
+      "extra": true,
+      "active": true,
+      "aliases": []
+    },
+    {
+      "key": "note",
+      "label": "備考",
+      "extra": true,
+      "active": true,
+      "aliases": []
+    },
+    {
+      "key": "f_sample_regulation",
+      "label": "サンプル用の点検区分（架空）",
+      "rule": "架空の社内基準・例示用",
+      "extra": true,
+      "active": true,
+      "aliases": []
+    }
+  ]
+}

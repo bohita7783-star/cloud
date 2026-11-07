@@ -79,6 +79,9 @@ textarea{min-height:84px;resize:vertical}
 .item .t{font-weight:900}
 .item .s{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
 .item .arrow{margin-left:auto;font-weight:900;color:var(--muted)}
+.schema-line{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)}
+.schema-line:last-child{border-bottom:0}
+.schema-archived{opacity:.75}
 .meter{height:10px;border-radius:10px;background:var(--line);overflow:hidden;min-width:60px}
 .meter i{display:block;height:100%;background:var(--ok)}
 .photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
@@ -170,7 +173,7 @@ details.more summary{cursor:pointer;font-weight:800}
    a file the user exports: backup ZIP, ledger CSV, or a report package for
    the Field Survey converter (hb-report-package/1).
    ==================================================================== */
-const APP_VERSION = '0.1.1';
+const APP_VERSION = '0.1.4';
 const DB_NAME = 'homebox', DB_VERSION = 1;
 const PKG_SCHEMA = 'hb-report-package/1', BACKUP_SCHEMA = 'hb-backup/1';
 const MAX_REPORT_PHOTOS = 3, MAX_TIMELINE = 8;
@@ -187,14 +190,14 @@ const FIELDS = [
   { key: 'location', label: '設置場所' },
   { key: 'kind_mass', label: '種類と質量' },
   { key: 'motor_maker', label: '電動機メーカー' },
-  { key: 'motor_type', label: '電動機形式' },
   { key: 'motor_kw', label: '電動機出力', unit: 'kW' },
-  { key: 'voltage_class', label: '電圧区分' },
   { key: 'rated_a', label: '定格電流', unit: 'A' },
-  { key: 'rpm', label: '回転数', unit: 'min⁻¹' },
+  { key: 'tank_volume', label: '圧力タンク容量', unit: 'L' },
   { key: 'bore', label: '口径' },
   { key: 'head', label: '揚程', unit: 'm' },
-  { key: 'tank_volume', label: '圧力タンク容量', unit: 'L' },
+  { key: 'motor_type', label: '電動機形式' },
+  { key: 'voltage_class', label: '電圧区分' },
+  { key: 'rpm', label: '回転数', unit: 'min⁻¹' },
   { key: 'life', label: '標準耐用年数', unit: '年' },
 ];
 // Extension items (not part of the official 17). Kept from v0.1.0 under the same keys.
@@ -206,7 +209,119 @@ const EXTRA_FIELDS = [
   { key: 'cycle', label: '点検周期' },
   { key: 'note', label: '備考' },
 ];
+// The constants above are the INITIAL template, not the permanent form definition.
+// Settings can add, edit, rearrange and archive fields. The stable key never changes.
+const DEFAULT_FIELD_SCHEMA = [...FIELDS.map(f => ({ ...f, extra: false, active: true, aliases: [] })),
+  ...EXTRA_FIELDS.map(f => ({ ...f, extra: true, active: true, aliases: [] }))];
 const ALL_FIELDS = [...FIELDS, ...EXTRA_FIELDS.map(f => ({ ...f, extra: true }))];
+// The official 17 mirror the company ledger (the master). They cannot be hidden,
+// renamed, regrouped or reordered on a phone; only extension fields are editable.
+const OFFICIAL_FIELDS = DEFAULT_FIELD_SCHEMA.filter(f => !f.extra).map(f => ({ ...f }));
+const OFFICIAL_KEYS = new Set(OFFICIAL_FIELDS.map(f => f.key));
+const FIELD_SCHEMA_KEY = 'ledger_fields_v1';
+const FIELD_FILE_SCHEMA = 'hb-ledger-fields/1';
+const MAX_LEDGER_FIELDS = 100;
+let fieldSchema = DEFAULT_FIELD_SCHEMA.map(f => ({ ...f }));
+let fieldSchemaRevision = 0;
+let fieldSchemaHistory = [];
+function normFieldName(s) { return String(s ?? '').trim().normalize('NFKC').toLowerCase(); }
+function validateFieldSchema(fields) {
+  if (!Array.isArray(fields) || fields.length < DEFAULT_FIELD_SCHEMA.length || fields.length > MAX_LEDGER_FIELDS)
+    throw Error('台帳項目の定義件数が不正です');
+  const keys = new Set(), labels = new Map();
+  for (const f of fields) {
+    if (!f || typeof f.key !== 'string' || !/^[a-z][a-z0-9_]*$/.test(f.key) || keys.has(f.key))
+      throw Error('台帳項目のキーが不正または重複しています');
+    keys.add(f.key);
+    if (typeof f.label !== 'string' || !f.label.trim() || f.label.length > 60 || /[\r\n]/.test(f.label) ||
+        typeof f.unit !== 'undefined' && (typeof f.unit !== 'string' || f.unit.length > 30) ||
+        typeof f.active !== 'boolean' || typeof f.extra !== 'boolean' || !Array.isArray(f.aliases || []) ||
+        (f.aliases || []).length > 30 || (f.aliases || []).some(a => typeof a !== 'string' || a.length > 60) ||
+        (typeof f.rule !== 'undefined' && (typeof f.rule !== 'string' || f.rule.length > 150)))
+      throw Error('台帳項目の定義が不正です：' + f.key);
+    for (const n of [f.label, ...(f.aliases || [])]) {
+      const nkey = normFieldName(n);
+      if (!nkey || labels.has(nkey) && labels.get(nkey) !== f.key)
+        throw Error('台帳項目名または過去の名前が重複しています：' + n);
+      labels.set(nkey, f.key);
+    }
+  }
+  for (const f of DEFAULT_FIELD_SCHEMA) if (!keys.has(f.key))
+    throw Error('既存項目の識別子が消されています：' + f.key);
+  for (const o of OFFICIAL_FIELDS) {
+    const f = fields.find(x => x.key === o.key);
+    if (!f.active || f.extra || f.label !== o.label || (f.unit || '') !== (o.unit || ''))
+      throw Error('正式17項目は変更・非表示にできません：' + o.label);
+  }
+  if (fields.filter(f => OFFICIAL_KEYS.has(f.key)).map(f => f.key).join() !== OFFICIAL_FIELDS.map(f => f.key).join())
+    throw Error('正式17項目の並び順は変更できません');
+  if (fields.some(f => !f.extra && !OFFICIAL_KEYS.has(f.key)))
+    throw Error('基本項目は正式17項目だけです。新しい項目は追加項目に入れてください');
+  return fields;
+}
+// Bring a schema written by v0.1.3 (which allowed editing the official 17) back to the rule.
+// Values are never touched: only the definitions change.
+function normalizeFieldSchema(fields) {
+  if (!Array.isArray(fields)) return { fields, changed: false };
+  const byKey = new Map(fields.map(f => [f.key, f]));
+  const official = OFFICIAL_FIELDS.map(o => {
+    const f = byKey.get(o.key) || {};
+    const aliases = [...new Set([...(f.aliases || []), ...(f.label && f.label !== o.label ? [f.label] : [])])].filter(a => a !== o.label);
+    return { ...o, aliases, ...(f.rule ? { rule: f.rule } : {}) };
+  });
+  const others = fields.filter(f => f && !OFFICIAL_KEYS.has(f.key)).map(f => ({ ...f, extra: true }));
+  const next = [...official, ...others];
+  return { fields: next, changed: JSON.stringify(next) !== JSON.stringify(fields) };
+}
+function applyFieldSchema(fields) {
+  validateFieldSchema(fields);
+  fieldSchema = fields.map(f => ({ ...f, aliases: [...(f.aliases || [])] }));
+  const visible = fieldSchema.filter(f => f.active);
+  FIELDS.splice(0, FIELDS.length, ...visible.filter(f => !f.extra));
+  EXTRA_FIELDS.splice(0, EXTRA_FIELDS.length, ...visible.filter(f => f.extra));
+  ALL_FIELDS.splice(0, ALL_FIELDS.length, ...FIELDS, ...EXTRA_FIELDS);
+}
+async function loadFieldSchema() {
+  const saved = await get('meta', FIELD_SCHEMA_KEY);
+  if (saved) {
+    if (!saved.v || !Number.isInteger(saved.v.revision)) throw Error('台帳項目の設定が破損しています');
+    const norm = normalizeFieldSchema(saved.v.fields);
+    fieldSchemaRevision = saved.v.revision;
+    fieldSchemaHistory = Array.isArray(saved.v.history) ? saved.v.history.slice(-100) : [];
+    if (norm.changed) { await updateFieldSchema(norm.fields, 'migrate:official17-fixed'); return; }
+    applyFieldSchema(saved.v.fields);
+  } else {
+    applyFieldSchema(DEFAULT_FIELD_SCHEMA);
+    fieldSchemaRevision = 0;
+    fieldSchemaHistory = [];
+  }
+}
+async function updateFieldSchema(next, operation) {
+  validateFieldSchema(next);
+  const revision = fieldSchemaRevision + 1;
+  // One durable record: a crash cannot split the schema and its revision apart.
+  const time = nowIso();
+  const history = [...fieldSchemaHistory, { revision, at: time, operation }].slice(-100);
+  await put('meta', { key: FIELD_SCHEMA_KEY,
+    v: { revision, updated_at: time, operation, fields: next, history } });
+  fieldSchemaRevision = revision;
+  fieldSchemaHistory = history;
+  applyFieldSchema(next);
+}
+function makeFieldKey() {
+  const v = crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : rid('field').replace(/[^a-z0-9]/gi, '').toLowerCase();
+  return 'f_' + v.toLowerCase();
+}
+function validateNewField(label, unit, key) {
+  label = label.trim(); unit = unit.trim();
+  if (!label || label.length > 60 || /[\r\n]/.test(label)) throw Error('項目名は1〜60文字で入力してください');
+  if (unit.length > 30) throw Error('単位は30文字以内で入力してください');
+  const names = fieldSchema.filter(f => f.key !== key).flatMap(f => [f.label, ...(f.aliases || [])]);
+  if (names.some(n => normFieldName(n) === normFieldName(label))) throw Error('同じ名前の項目が存在します');
+  if (['設備ID', '設備名', '分類', '場所の区分', 'QR'].some(n => normFieldName(n) === normFieldName(label)))
+    throw Error('CSVの基本列と同じ項目名は使えません');
+  return { label, unit };
+}
 const STATUS = { todo: '未確認', ok: '確認済', na: '対象外' };
 // Incident form = Field Survey template field names (the converter maps them 1:1).
 const CASE_FIELDS = [
@@ -598,10 +713,10 @@ async function viewEq(id) {
     <div class="row"><a class="btn primary" href="#shoot/${esc(eq.id)}">撮影する</a><button class="btn" id="mkcase">異常案件を作る</button><button class="btn" id="mkrec">点検を記録</button><a class="btn ghost" href="#eq-edit/${esc(eq.id)}">基本情報</a></div>
   </section>
   <section class="card">
-    <div class="sec-title"><h2 style="font-size:18px">設備台帳（${FIELDS.length}項目）</h2><button class="btn small primary" id="saveL">台帳を保存</button></div>
+    <div class="sec-title"><h2 style="font-size:18px">設備台帳（基本${FIELDS.length}項目・追加${EXTRA_FIELDS.length}項目）</h2><button class="btn small primary" id="saveL">台帳を保存</button></div>
     <p class="muted small">値ごとに「確認済／未確認／対象外」と、どこで確かめたか（銘板写真、図面など）を残せます。会社の台帳が正本です。ここでの確認結果は、会社の台帳を直すための候補として使います。</p>
     <div class="ledger-wrap"><table class="ledger"><tbody>
-    ${ALL_FIELDS.map((f, i) => { const v = eq.fields[f.key] || { v: '', st: 'todo', src: '' }; return `${i === FIELDS.length ? '<tr><th colspan="2" style="padding-top:18px"><span class="badge prov">追加項目</span> <span class="muted small">17項目以外。機器の種類に応じて使う</span></th></tr>' : ''}<tr><th scope="row"><label for="lv-${i}">${esc(f.label)}</label>${f.unit ? `<div class="muted small">単位 ${esc(f.unit)}</div>` : ''}</th>
+    ${ALL_FIELDS.map((f, i) => { const v = eq.fields[f.key] || { v: '', st: 'todo', src: '' }; return `${i === FIELDS.length ? '<tr><th colspan="2" style="padding-top:18px"><span class="badge prov">追加項目</span> <span class="muted small">設定から項目を追加・非表示にできます</span></th></tr>' : ''}<tr><th scope="row"><label for="lv-${i}">${esc(f.label)}</label>${f.unit ? `<div class="muted small">単位 ${esc(f.unit)}</div>` : ''}</th>
       <td><div class="cell"><input type="text" id="lv-${i}" value="${esc(v.v)}">
       <div class="row"><select id="ls-${i}" aria-label="${esc(f.label)}の確認状況">${Object.entries(STATUS).map(([k, l]) => `<option value="${k}" ${v.st === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <input type="text" id="lc-${i}" style="width:auto;min-width:0;flex:1 1 7em" value="${esc(v.src)}" placeholder="出典（例：銘板写真）" aria-label="${esc(f.label)}の出典"></div></div></td></tr>`; }).join('')}
@@ -803,6 +918,115 @@ async function viewCase(id) {
   drawTl(); drawCaptions(); showProblems();
 }
 
+/* ---------- configurable ledger schema (v0.1.3) ---------- */
+function renderFieldEditor() {
+  const root = $('#schemaUI');
+  if (!root) return;
+  const totalVisible = fieldSchema.filter(f => f.active).length;
+  $('#schemaRev').textContent = `設定版 ${fieldSchemaRevision}・表示 ${totalVisible}項目`;
+  const historyNode = $('#schemaHistory');
+  if (historyNode) historyNode.textContent = fieldSchemaHistory.length ? `最近の変更：${fieldSchemaHistory.slice(-5).map(h => `#${h.revision} ${h.operation}`).join(' ／ ')}` : '項目の変更履歴はまだありません';
+  const group = (extra, title) => `<div class="item" style="display:block;border-color:var(--line)"><h3 style="font-size:16px">${title}</h3>
+    ${fieldSchema.filter(f => f.extra === extra).map(f => `<div class="schema-line ${f.active ? '' : 'schema-archived'}">
+      <div class="grow"><b>${esc(f.label)}</b> ${OFFICIAL_KEYS.has(f.key) ? '<span class="badge ok">正式・固定</span>' : f.active ? '' : '<span class="badge todo">非表示・保管中</span>'}
+        ${f.unit ? `<span class="muted small">（${esc(f.unit)}）</span>` : ''}
+        ${f.rule ? `<div class="muted small">根拠：${esc(f.rule)}</div>` : ''}
+        <div class="muted small mono">保存キー：${esc(f.key)}</div></div>
+      <div class="row" style="gap:4px">
+        ${OFFICIAL_KEYS.has(f.key) ? '' : f.active ? `<button class="btn small ghost" data-op="up" data-fk="${esc(f.key)}" aria-label="${esc(f.label)}を上へ">↑</button>
+        <button class="btn small ghost" data-op="down" data-fk="${esc(f.key)}" aria-label="${esc(f.label)}を下へ">↓</button>
+        <button class="btn small" data-op="edit" data-fk="${esc(f.key)}">編集</button>
+        <button class="btn small ghost" data-op="archive" data-fk="${esc(f.key)}">削除</button>` :
+        `<button class="btn small primary" data-op="restore" data-fk="${esc(f.key)}">復元</button>`}
+      </div></div>`).join('')}</div>`;
+  root.innerHTML = group(false, '正式17項目（会社の台帳と同じ。変更・削除できません）') + group(true, '追加項目（追加・名前変更・並べ替え・削除・復元ができます）');
+  $('#fieldExport').onclick = exportFieldSchemaFile;
+  $('#fieldImport').onchange = e => e.target.files[0] && importFieldSchemaFile(e.target.files[0]).finally(() => e.target.value = '');
+  $('#fieldAdd').onclick = async () => {
+    if (fieldSchema.length >= MAX_LEDGER_FIELDS) return toast('項目の上限は100件です');
+    const ok = await ask('新しい台帳項目', `<label class="field">項目名 <span class="req">必須</span><input id="schema-name" type="text" maxlength="60" required placeholder="例：法定点検区分"></label>
+      <label class="field">単位（任意）<input id="schema-unit" type="text" maxlength="30" placeholder="例：年、A、kW"></label>
+      <label class="field">根拠・規程（任意）<input id="schema-rule" type="text" maxlength="150" placeholder="例：社内基準／省令名と条文"></label>
+      <p class="muted small">新しい項目は「追加項目」に入ります。正式17項目は会社の台帳と同じに保ちます。</p>`, '追加する');
+    if (!ok) return;
+    try {
+      const { label, unit } = validateNewField($('#schema-name').value, $('#schema-unit').value);
+      const rule = $('#schema-rule').value.trim();
+      const item = { key: makeFieldKey(), label, ...(unit ? { unit } : {}), ...(rule ? { rule } : {}), extra: true, active: true, aliases: [] };
+      await updateFieldSchema([...fieldSchema, item], 'add:' + item.key);
+      toast(`「${label}」を追加しました`); renderFieldEditor();
+    } catch (e) { toast(e.message); }
+  };
+  root.querySelectorAll('[data-op][data-fk]').forEach(b => b.onclick = async () => {
+    const key = b.dataset.fk, op = b.dataset.op;
+    const i = fieldSchema.findIndex(f => f.key === key);
+    if (i < 0) return toast('項目が見つかりません');
+    if (OFFICIAL_KEYS.has(key)) return toast('正式17項目は変更できません');
+    const current = fieldSchema[i], next = fieldSchema.map(f => ({ ...f, aliases: [...(f.aliases || [])] }));
+    try {
+      if (op === 'edit') {
+        const ok = await ask('台帳項目の編集', `<label class="field">表示名<input id="schema-name" value="${esc(current.label)}" maxlength="60" required></label>
+          <label class="field">単位（任意）<input id="schema-unit" value="${esc(current.unit || '')}" maxlength="30"></label>
+          <label class="field">根拠・規程（任意）<input id="schema-rule" value="${esc(current.rule || '')}" maxlength="150"></label>
+          <p class="muted small">表示名を変えても保存キーと過去の入力値は変わりません。旧名称のCSV見出しも引き続き読めます。</p>`, '変更を保存');
+        if (!ok) return;
+        const { label, unit } = validateNewField($('#schema-name').value, $('#schema-unit').value, key);
+        if (current.label !== label) next[i].aliases = [...new Set([...(current.aliases || []), current.label])].filter(x => normFieldName(x) !== normFieldName(label));
+        next[i].label = label;
+        const rule = $('#schema-rule').value.trim();
+        if (rule) next[i].rule = rule; else delete next[i].rule;
+        if (unit) next[i].unit = unit; else delete next[i].unit;
+      } else if (op === 'archive') {
+        const ok = await ask('項目を削除（非表示）', `<p>「${esc(current.label)}」を画面と通常CSVから外します。</p><p>入力済みの値・確認状況・出典は残り、いつでも復元できます。</p>`, '非表示にする');
+        if (!ok) return;
+        next[i].active = false;
+      } else if (op === 'restore') {
+        next[i].active = true;
+      } else if (op === 'up' || op === 'down') {
+        const direction = op === 'up' ? -1 : 1;
+        let j = i + direction;
+        while (j >= 0 && j < next.length && (next[j].extra !== current.extra || !next[j].active)) j += direction;
+        if (j < 0 || j >= next.length) return toast('これ以上は移動できません');
+        const target = next.splice(i, 1)[0]; next.splice(j, 0, target);
+      } else return;
+      await updateFieldSchema(next, op + ':' + key);
+      toast('台帳項目の設定を保存しました'); renderFieldEditor();
+    } catch (e) { console.error(e); toast('項目を変更できません：' + e.message); }
+  });
+}
+
+async function exportFieldSchemaFile() {
+  const payload = { schema: FIELD_FILE_SCHEMA, app_version: APP_VERSION,
+    exported_at: nowIso(), revision: fieldSchemaRevision, fields: fieldSchema };
+  download(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }), `HB-FIELDS-${ymd()}.json`);
+  toast('台帳の項目設定をJSONで書き出しました');
+}
+async function importFieldSchemaFile(file) {
+  try {
+    if (file.size > 256 * 1024) throw Error('項目設定ファイルが大きすぎます');
+    const config = JSON.parse(await file.text());
+    if (config.schema !== FIELD_FILE_SCHEMA) throw Error('ホームボックスの項目定義ではありません');
+    const norm = normalizeFieldSchema(config.fields);
+    if (norm.changed) toast('正式17項目の変更は取り込まず、会社の台帳どおりに戻しました');
+    config.fields = norm.fields;
+    validateFieldSchema(config.fields);
+    const existing = new Map(fieldSchema.map(f => [f.key, f]));
+    const supplied = new Set(config.fields.map(f => f.key));
+    // Preserve device-only fields as archived rather than removing stored values.
+    const deviceOnly = fieldSchema.filter(f => !supplied.has(f.key)).map(f => ({ ...f, active: false }));
+    const next = [...config.fields, ...deviceOnly];
+    validateFieldSchema(next); // fail on conflicting stable IDs / historical names
+    const newFields = config.fields.filter(f => !existing.has(f.key));
+    const changed = config.fields.filter(f => existing.has(f.key) && JSON.stringify(existing.get(f.key)) !== JSON.stringify(f));
+    const archived = deviceOnly.filter(f => f.active === false);
+    const ok = await ask('台帳項目の定義を取り込みますか？', `<p>新規：${newFields.length}項目／設定変更：${changed.length}項目／この端末だけの項目を保管：${archived.length}項目</p>
+      <p class="muted">設備の値・写真・案件はそのまま。CSVの見出しや設備画面の項目順は変わることがあります。</p>`, '定義を取り込む');
+    if (!ok) return;
+    await updateFieldSchema(next, 'import_json');
+    toast('項目設定を取り込みました');renderFieldEditor();
+  } catch (e) { console.error(e); toast('項目設定を取り込めません：' + e.message); }
+}
+
 /* ---------- settings: backup, CSV, storage ---------- */
 async function viewSettings() {
   let persisted = false, est = null;
@@ -818,18 +1042,22 @@ async function viewSettings() {
   <section class="card"><h2 style="font-size:18px">設備台帳CSV</h2>
     <p class="muted small">1行目は見出し：設備ID, 設備名, 分類, 場所の区分, QR, 17項目, 追加項目（${ALL_FIELDS.map(f => esc(f.label)).join(', ')}）。Excelで保存したCSV（UTF-8・Shift_JIS）を読めます。取り込んだ値は「未確認」になります。</p>
     <div class="row"><button class="btn" id="csvout">台帳CSVを書き出す</button><button class="btn" id="csvtpl">空のCSVひな形</button><label class="btn primary" for="csvin">台帳CSVを取り込む</label><input type="file" id="csvin" accept=".csv,text/csv" hidden></div></section>
-  <section class="card"><h2 style="font-size:18px">台帳の項目</h2>
-    <p class="small"><b>17項目（正式テンプレート）</b></p><div class="chips">${FIELDS.map(f => `<span class="badge">${esc(f.label)}</span>`).join('')}</div>
-    <p class="small"><b>追加項目</b></p><div class="chips">${EXTRA_FIELDS.map(f => `<span class="badge prov">${esc(f.label)}</span>`).join('')}</div>
-    <p class="muted small">値は項目のキーで保存しているので、表示名や並び順を変えてもデータは残ります。</p></section>
+  <section class="card"><h2 style="font-size:18px">設備台帳の項目を編集</h2>
+    <p class="muted small">正式17項目は会社の台帳（正本）と同じに保つため固定です。<strong>追加項目は、追加・名前変更・並べ替え・削除（非表示）・復元</strong>ができます。変更しても入力済みの値・確認状況・出典は保持します。端末ごとに項目がばらばらにならないよう、変更は管理者が決めて「項目設定JSON」で配るのがおすすめです。</p>
+    <p class="muted small">削除は安全のため「保管して非表示」です。非表示の値は通常のCSVには出さず、バックアップZIPには残ります。再表示すると元の値が戻ります。省令・社内基準など、項目の根拠も任意で記録できます。</p>
+    <div class="row"><button class="btn primary" id="fieldAdd">＋ 項目を追加</button><span class="badge" id="schemaRev"></span></div>
+    <div class="row"><button class="btn small" id="fieldExport">項目設定JSONを書き出す</button><label class="btn small" for="fieldImport">項目設定JSONを取り込む</label><input type="file" id="fieldImport" accept=".json,application/json" hidden></div>
+    <p class="muted small">別の端末へ項目設定だけを配布する場合に使用します。設備の値・写真・案件は上書きしません。インポート前に必ず変更内容を確認してください。</p>
+    <div id="schemaUI" class="list"></div><p class="muted small" id="schemaHistory"></p></section>
   <section class="card"><h2 style="font-size:18px">全データを消す</h2><p class="muted small">先にバックアップを書き出してください。</p><button class="btn red" id="wipe">この端末のデータをすべて消す</button></section>`;
+  renderFieldEditor();
   $('#persist')?.addEventListener('click', async () => { const ok = await navigator.storage.persist(); toast(ok ? '有効にしました' : 'ブラウザに許可されませんでした（ホーム画面に追加すると通りやすくなります）'); viewSettings(); });
   $('#bk').onclick = exportBackup;
   $('#rs').onchange = e => e.target.files[0] && restoreBackup(e.target.files[0]).finally(() => e.target.value = '');
   $('#csvout').onclick = () => exportCSV(false);
   $('#csvtpl').onclick = () => exportCSV(true);
   $('#csvin').onchange = e => e.target.files[0] && importCSV(e.target.files[0]).finally(() => e.target.value = '');
-  $('#wipe').onclick = async () => { if (await ask('すべて消しますか？', '<p>設備・写真・案件・点検記録をこの端末から消します。元に戻せません。</p>', 'すべて消す', true)) { for (const s of ['equipment', 'photos', 'cases', 'records', 'meta']) await req((await os(s, 'readwrite')).clear()); toast('消しました'); location.hash = '#home'; } };
+  $('#wipe').onclick = async () => { if (await ask('すべて消しますか？', '<p>設備・写真・案件・点検記録をこの端末から消します。元に戻せません。</p>', 'すべて消す', true)) { for (const s of ['equipment', 'photos', 'cases', 'records', 'meta']) await req((await os(s, 'readwrite')).clear()); await loadFieldSchema(); toast('消しました'); location.hash = '#home'; } };
 }
 async function exportBackup() {
   const stores = {}; for (const s of ['equipment', 'cases', 'records', 'meta']) stores[s] = await all(s);
@@ -848,6 +1076,9 @@ async function restoreBackup(file) {
   if (!b || b.schema !== BACKUP_SCHEMA) return toast('ホームボックスのバックアップではありません');
   for (const s of ['equipment', 'photos', 'cases', 'records', 'meta']) if (!Array.isArray(b[s])) problems.push(`${s} がありません`);
   if (problems.length) return toast('バックアップが不完全です：' + problems.join('、'));
+  const savedSchema = b.meta.find(x => x && x.key === FIELD_SCHEMA_KEY);
+  if (savedSchema?.v) savedSchema.v.fields = normalizeFieldSchema(savedSchema.v.fields).fields;
+  if (savedSchema) { try { validateFieldSchema(savedSchema.v?.fields); } catch (e) { problems.push('台帳項目の設定が不正です：' + e.message); } }
   const photos = [];
   for (const p of b.photos) {
     const d = z.get('photos/' + p.id);
@@ -878,7 +1109,7 @@ async function restoreBackup(file) {
       }, rej);
     });
   } catch (e) { return toast('復元できませんでした（元のデータは残っています）：' + e.message); }
-  toast('復元しました'); location.hash = '#home'; route();
+  await loadFieldSchema(); toast('復元しました'); location.hash = '#home'; route();
 }
 async function exportCSV(templateOnly) {
   const head = ['設備ID', '設備名', '分類', '場所の区分', 'QR', ...ALL_FIELDS.map(f => f.label)];
@@ -891,9 +1122,25 @@ async function importCSV(file) {
   if (rows.length < 2) return toast('データ行がありません');
   const head = rows[0].map(h => h.trim()), col = n => head.indexOf(n);
   if (col('設備名') < 0) return toast('見出しに「設備名」がありません');
-  const known = ALL_FIELDS.filter(f => col(f.label) >= 0), existing = new Map((await all('equipment')).map(e => [e.id, e]));
+  if (new Set(head).size !== head.length) return toast('CSVの見出しが重複しています');
+  const findCols = f => [...new Set([f.label, ...(f.aliases || [])].map(col).filter(i => i >= 0))];
+  if (ALL_FIELDS.some(f => findCols(f).length > 1)) return toast('同じ項目の新旧見出しが両方あります。CSVを修正してください');
+  const archivedCols = fieldSchema.filter(f => !f.active && [f.label, ...(f.aliases || [])].some(n => col(n) >= 0));
+  if (archivedCols.length) {
+    await ask('非表示の項目がCSVに含まれています', `<p>設定で項目を復元してから取り込み直してください。古い値を誤って消さないため、読み飛ばしません。</p><p>${archivedCols.map(f => esc(f.label)).join('、')}</p>`, '閉じる');
+    return;
+  }
+  const known = ALL_FIELDS.filter(f => findCols(f).length === 1);
+  const allowedHeads = new Set(['設備ID', '設備名', '分類', '場所の区分', 'QR',
+    ...fieldSchema.flatMap(f => [f.label, ...(f.aliases || [])])]);
+  const unknown = head.filter(h => h && !allowedHeads.has(h));
+  if (unknown.length) {
+    await ask('未登録のCSV列があります', `<p>読み飛ばしを防ぐため、先に設定で項目を追加してください。</p><p class="mono">${unknown.slice(0, 10).map(esc).join('、')}</p>`, '閉じる');
+    return;
+  }
+  const existing = new Map((await all('equipment')).map(e => [e.id, e]));
   const data = rows.slice(1).map(r => ({ id: (r[col('設備ID')] || '').trim(), name: (r[col('設備名')] || '').trim(), category: (r[col('分類')] || '').trim(), area: (r[col('場所の区分')] || '').trim(), qr: (r[col('QR')] || '').trim(),
-    fields: Object.fromEntries(known.map(f => [f.key, (r[col(f.label)] || '').trim()])) })).filter(r => r.name);
+    fields: Object.fromEntries(known.map(f => [f.key, (r[findCols(f)[0]] || '').trim()])) })).filter(r => r.name);
   const upd = data.filter(r => existing.has(r.id)).length;
   const ok = await ask('台帳CSVを取り込みますか？', `<p>${data.length}台（新規 ${data.length - upd}・更新 ${upd}）。読めた項目：${known.length}/${ALL_FIELDS.length}（17項目 ${known.filter(f => !f.extra).length}/${FIELDS.length}）</p><p class="muted">取り込んだ値は「未確認」になります。現物や銘板で確かめてから「確認済」にしてください。</p>`, '取り込む');
   if (!ok) return;
@@ -921,7 +1168,7 @@ async function route() {
 }
 addEventListener('hashchange', route);
 $('#ver').textContent = 'v' + APP_VERSION;
-route();
+loadFieldSchema().then(route).catch(e => { console.error(e); V().innerHTML = `<section class="card problems"><b>台帳項目の設定を読み込めません</b><p>${esc(e.message)}</p><p>バックアップから復元する前に管理者へ相談してください。</p></section>`; });
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js').catch(() => { });
 </script>
 </body>

@@ -3,7 +3,7 @@
 // cache never serves HomeBox files once this is installed.
 // NOTE: this separates CACHING only. IndexedDB is shared by every page of the same
 // origin, so for business use host HomeBox on its own origin (see ARCHITECTURE.md).
-const CACHE = 'homebox-v0.1.1';
+const CACHE = 'homebox-v0.1.4';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png'];
 
 self.addEventListener('install', e => e.waitUntil(
