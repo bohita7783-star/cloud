@@ -1,0 +1,5 @@
+{
+  "schema": "fs-converter-trusted-approvers/1",
+  "note": "管理者の公開鍵だけを登録する。秘密鍵は絶対に置かない。更新は管理者が新しい版のパッケージとして配布する。",
+  "keys": []
+}

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; font-src 'self'; form-action 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; font-src 'self'; form-action 'none'; base-uri 'none'">
 <meta name="theme-color" content="#F5A13A">
 <title>ホームボックス</title>
 <link rel="manifest" href="./manifest.webmanifest">
@@ -173,7 +173,7 @@ details.more summary{cursor:pointer;font-weight:800}
    a file the user exports: backup ZIP, ledger CSV, or a report package for
    the Field Survey converter (hb-report-package/1).
    ==================================================================== */
-const APP_VERSION = '0.1.4';
+const APP_VERSION = '0.2.0';
 const DB_NAME = 'homebox', DB_VERSION = 1;
 const PKG_SCHEMA = 'hb-report-package/1', BACKUP_SCHEMA = 'hb-backup/1';
 const MAX_REPORT_PHOTOS = 3, MAX_TIMELINE = 8;
@@ -603,6 +603,37 @@ async function buildPackage(c) {
   return makeZip([{ name: 'package.json', data: JSON.stringify(pkg, null, 2) }, ...files]);
 }
 
+/* ---------- report engine (Python converter in Pyodide, in a worker) ---------- */
+const TEMPLATE_KEY = 'company_template';
+const engine = {
+  worker: null, seq: 0, pending: new Map(), warmP: null,
+  start() {
+    if (this.worker) return;
+    this.worker = new Worker('./engine-worker.js');
+    this.worker.onmessage = e => {
+      const { id, type } = e.data, job = this.pending.get(id);
+      if (!job) return;
+      if (type === 'progress') return job.onProgress?.(e.data.stage);
+      this.pending.delete(id);
+      type === 'done' ? job.resolve(e.data) : job.reject(new Error(e.data.message));
+    };
+    this.worker.onerror = e => { for (const j of this.pending.values()) j.reject(new Error('エンジンが停止しました：' + (e.message || ''))); this.pending.clear(); this.worker = null; this.warmP = null; };
+  },
+  call(cmd, data = {}, onProgress, transfer = []) {
+    this.start();
+    const id = ++this.seq;
+    return new Promise((resolve, reject) => { this.pending.set(id, { resolve, reject, onProgress }); this.worker.postMessage({ id, cmd, ...data }, transfer); });
+  },
+  warm(onProgress) { return this.warmP ||= this.call('warm', {}, onProgress).catch(e => { this.warmP = null; throw e; }); },
+};
+async function templateRecord() { return get('meta', TEMPLATE_KEY); }
+function stopwatch(el) {
+  const t0 = performance.now(); let stage = '';
+  const tick = () => { el.textContent = `${stage}（${((performance.now() - t0) / 1000).toFixed(0)}秒）`; };
+  const h = setInterval(tick, 500);
+  return { set(s) { stage = s; tick(); }, stop() { clearInterval(h); return (performance.now() - t0) / 1000; } };
+}
+
 /* ---------- rendering helpers ---------- */
 const V = () => $('#view');
 const statusBadge = st => `<span class="badge ${st}">${STATUS[st] || STATUS.todo}</span>`;
@@ -849,8 +880,12 @@ async function viewCase(id) {
   <section class="card"><div class="sec-title"><h2 style="font-size:18px">対応経過（${MAX_TIMELINE}件まで）</h2><button class="btn small" id="tl-add">＋ 追加</button></div><div id="tl" style="display:grid;gap:10px"></div></section>
   <section class="card"><h2 style="font-size:18px">報告書にする</h2>
     <div id="probs"></div>
-    <div class="row"><button class="btn primary" id="export">報告書パッケージを書き出す</button><button class="btn red small" id="delc">案件を削除</button></div>
-    <details class="more"><summary>書き出したあとの手順</summary><ol class="small">
+    <div class="row"><button class="btn primary" id="mkxlsx">この端末で会社様式のExcelを作る</button></div>
+    <p class="muted small" id="xlsxStatus">承認済みのひな形で、写真の配置から全部品の検査まで、この端末の中で行います。初回は準備に数十秒かかります。</p>
+    <div id="xlsxResult"></div>
+    ${(c.reports || []).length ? `<details class="more"><summary>これまでに作ったExcel（${c.reports.length}件）</summary><ul class="small">${c.reports.slice(-5).reverse().map(r => `<li>${esc(fmt(r.at))}・${esc(r.name)}・承認 ${esc(r.approvalId)}・${esc(r.seconds)}秒</li>`).join('')}</ul></details>` : ''}
+    <div class="row"><button class="btn small" id="export">報告書パッケージを書き出す（Termuxで変換する場合）</button><button class="btn red small" id="delc">案件を削除</button></div>
+    <details class="more"><summary>Termuxで変換する場合の手順</summary><ol class="small">
       <li>ダウンロードに <span class="mono">HB-REPORT-${esc(c.id)}.zip</span> ができます。</li>
       <li>Termux で <span class="mono">bash ~/FS_Phone_Converter_v2_4_2/run_homebox.sh</span> を実行すると、承認済みの会社様式に変換されます。</li>
       <li>完成品は <span class="mono">Download/FS_変換結果</span> に入ります。印刷前に必ず内容を確認してください。</li></ol></details>
@@ -869,7 +904,7 @@ async function viewCase(id) {
       c.selected = c.selected.filter(pid => photos.find(x => x.id === pid)?.equipmentId === c.equipmentId);
       if (c.selected.length !== before) { await put('cases', c); toast('別の設備の写真を選択から外しました'); }
       viewCase(id); } else if (!e.target.closest('#captions') && !e.target.closest('#tl')) later(); });
-  const showProblems = async () => { const photos = await all('photos'); const p = caseProblems(c, photos); $('#probs').innerHTML = p.length ? `<div class="problems"><b>書き出す前に直すところ</b><ul>${p.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '<p class="badge ok" style="justify-self:start">書き出せます</p>'; $('#export').disabled = p.length > 0; };
+  const showProblems = async () => { const photos = await all('photos'); const p = caseProblems(c, photos); $('#probs').innerHTML = p.length ? `<div class="problems"><b>書き出す前に直すところ</b><ul>${p.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '<p class="badge ok" style="justify-self:start">書き出せます</p>'; $('#export').disabled = p.length > 0; $('#mkxlsx').disabled = p.length > 0; };
   // photo selection + captions (stored on the photo itself)
   const drawCaptions = async () => {
     const sel = await Promise.all(c.selected.map(pid => get('photos', pid)));
@@ -913,6 +948,37 @@ async function viewCase(id) {
     try { blob = await buildPackage(c); } catch (err) { return toast('書き出しを止めました：' + err.message); }
     download(blob, `HB-REPORT-${c.id}.zip`);
     c.exportedAt = nowIso(); await put('cases', c); toast('報告書パッケージを書き出しました');
+  };
+  templateRecord().then(t => { if (t) engine.warm().catch(() => { }); }); // get the engine ready while the user types
+  $('#mkxlsx').onclick = async () => {
+    await save(); const photos = await all('photos');
+    if (caseProblems(c, photos).length) return toast('直すところがあります');
+    const tpl = await templateRecord();
+    if (!tpl) return ask('会社様式が登録されていません', '<p>設定 →「会社様式（承認済みひな形）」で、管理者から受け取ったひな形（.xlsx）と承認済み一覧（.approved.json）を登録してください。</p>', '閉じる');
+    const btn = $('#mkxlsx'), status = $('#xlsxStatus'), sw = stopwatch(status);
+    btn.disabled = true; $('#xlsxResult').innerHTML = '';
+    try {
+      sw.set('報告書パッケージを作っています');
+      const pkg = new Uint8Array(await (await buildPackage(c)).arrayBuffer());
+      const template = new Uint8Array(await tpl.blob.arrayBuffer()), manifest = new TextEncoder().encode(tpl.manifestText);
+      const r = await engine.call('convert', { package: pkg, template, manifest }, st => sw.set(st), [pkg.buffer, template.buffer, manifest.buffer]);
+      const seconds = sw.stop().toFixed(0);
+      const xlsx = new Blob([r.xlsx], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const auditBlob = new Blob([r.audit], { type: 'application/json' });
+      download(xlsx, r.result.name);
+      (c.reports ||= []).push({ at: nowIso(), name: r.result.name, approvalId: r.result.approval_id, seconds, version: r.result.version });
+      await put('cases', c);
+      status.textContent = `できました（${seconds}秒）。ダウンロードに保存しました。会社PCのExcelで内容と印刷を確認してから提出してください。`;
+      $('#xlsxResult').innerHTML = `<div class="tl"><b>${esc(r.result.name)}</b><span class="small">承認 ${esc(r.result.approval_id)}・写真 ${r.result.photo_count}枚・対応経過 ${r.result.timeline_count}件・変換ツール ${esc(r.result.version)}</span>
+        ${r.result.unmapped.length ? `<span class="small" style="color:var(--stamp)">報告書に自動で入らない入力：${esc(r.result.unmapped.join('、'))}</span>` : ''}
+        <div class="row"><button class="btn small" id="dlx">Excelをもう一度保存</button><button class="btn small ghost" id="dla">変換ログ（JSON）を保存</button></div></div>`;
+      $('#dlx').onclick = () => download(xlsx, r.result.name);
+      $('#dla').onclick = () => download(auditBlob, r.result.name.replace(/\.xlsx$/, '.json'));
+    } catch (err) {
+      sw.stop();
+      status.textContent = 'Excelを作れませんでした。';
+      $('#xlsxResult').innerHTML = `<div class="problems"><b>止まった理由</b><p>${esc(err.message)}</p><p class="muted small">元のデータは変わっていません。必要なら手作業で報告書を作成してください。</p></div>`;
+    } finally { btn.disabled = false; showProblems(); }
   };
   $('#delc').onclick = async () => { if (await ask('案件を削除しますか？', `<p>${esc(c.id)} ${esc(c.data['件名'])}</p><p class="muted">写真は設備に残ります。案件の入力内容と対応経過は元に戻せません。</p>`, '削除する', true)) { await del('cases', c.id); toast('削除しました'); location.hash = '#cases'; } };
   drawTl(); drawCaptions(); showProblems();
@@ -1036,6 +1102,13 @@ async function viewSettings() {
     <dl class="kv"><dt>保存場所</dt><dd>この端末のブラウザの中だけ。業務データを外部へ送る処理はありません（アプリの更新確認のため、開いたときに配信元へ接続します）</dd>
     <dt>消されにくい設定</dt><dd>${persisted ? '<span class="badge ok">有効</span>' : '<span class="badge todo">未設定</span> <button class="btn small" id="persist">有効にする</button>'}</dd>
     <dt>使用量</dt><dd>${est ? (est.usage / 1048576).toFixed(1) + ' MB' : '不明'}</dd><dt>版</dt><dd>${APP_VERSION}</dd></dl></section>
+  <section class="card"><h2 style="font-size:18px">会社様式（承認済みひな形）</h2>
+    <div id="tplState" class="small"></div>
+    <p class="muted small">管理者から受け取った<b>空白ひな形（.xlsx）</b>と<b>承認済み一覧（.approved.json）</b>の2つを登録します。署名・原本のハッシュ・変換ツールの版を、この端末の中で照合します。</p>
+    <div class="grid2"><label class="field">ひな形（.xlsx）<input type="file" id="tplX" accept=".xlsx"></label>
+    <label class="field">承認済み一覧（.json）<input type="file" id="tplM" accept=".json,application/json"></label></div>
+    <div class="row"><button class="btn primary" id="tplReg">照合して登録する</button><button class="btn small ghost" id="tplDel">登録を外す</button><button class="btn small" id="warm">Excel作成の準備（圏外で使う前に1回）</button></div>
+    <p class="muted small" id="warmState"></p></section>
   <section class="card"><h2 style="font-size:18px">バックアップ</h2>
     <p class="muted small">機種変更や故障に備えて、定期的に書き出し、会社が認めた保存先に置いてください。写真は元のまま入ります。</p>
     <div class="row"><button class="btn primary" id="bk">バックアップを書き出す</button><label class="btn" for="rs">バックアップから復元</label><input type="file" id="rs" accept=".zip,application/zip" hidden></div></section>
@@ -1052,6 +1125,32 @@ async function viewSettings() {
   <section class="card"><h2 style="font-size:18px">全データを消す</h2><p class="muted small">先にバックアップを書き出してください。</p><button class="btn red" id="wipe">この端末のデータをすべて消す</button></section>`;
   renderFieldEditor();
   $('#persist')?.addEventListener('click', async () => { const ok = await navigator.storage.persist(); toast(ok ? '有効にしました' : 'ブラウザに許可されませんでした（ホーム画面に追加すると通りやすくなります）'); viewSettings(); });
+  const drawTpl = async () => {
+    const t = await templateRecord();
+    $('#tplState').innerHTML = t ? `<span class="badge ok">登録済み</span> ${esc(t.name)}<br>承認 ${esc(t.approvalId)}（${esc(t.approver)}、${esc(fmt(t.approvedAt))}）${t.validUntil ? '・有効期限 ' + esc(fmt(t.validUntil)) : ''}<br><span class="mono">SHA-256 ${esc(t.sha256.slice(0, 16))}…</span>`
+      : '<span class="badge todo">未登録</span> 登録するまで、この端末ではExcelを作れません（報告書パッケージの書き出しはできます）。';
+  };
+  drawTpl();
+  $('#tplReg').onclick = async () => {
+    const x = $('#tplX').files[0], m = $('#tplM').files[0];
+    if (!x || !m) return toast('ひな形と承認済み一覧の両方を選んでください');
+    const st = $('#warmState'), sw = stopwatch(st);
+    sw.set('照合しています');
+    try {
+      const template = new Uint8Array(await x.arrayBuffer()), manifestText = await m.text();
+      const r = await engine.call('verify', { template: template.slice(), manifest: new TextEncoder().encode(manifestText) }, s => sw.set(s));
+      const secs = sw.stop().toFixed(0);
+      await put('meta', { key: TEMPLATE_KEY, name: x.name, blob: new Blob([template]), sha256: r.result.template_sha256, manifestText,
+        approvalId: r.result.approval_id, approver: r.result.approver, approvedAt: r.result.approved_at, validUntil: r.result.valid_until, registeredAt: nowIso() });
+      st.textContent = `照合に合格し、登録しました（${secs}秒）。`; drawTpl();
+    } catch (err) { sw.stop(); st.textContent = '登録できません：' + err.message; }
+  };
+  $('#tplDel').onclick = async () => { if (await ask('会社様式の登録を外しますか？', '<p>この端末ではExcelを作れなくなります。案件や写真は消えません。</p>', '外す', true)) { await del('meta', TEMPLATE_KEY); drawTpl(); } };
+  $('#warm').onclick = async () => {
+    const st = $('#warmState'), sw = stopwatch(st);
+    try { const r = await engine.warm(s => sw.set(s)); st.textContent = `準備できました（${sw.stop().toFixed(0)}秒、変換ツール ${r.result.version}）。以後は圏外でもExcelを作れます。`; }
+    catch (err) { sw.stop(); st.textContent = '準備できません：' + err.message; }
+  };
   $('#bk').onclick = exportBackup;
   $('#rs').onchange = e => e.target.files[0] && restoreBackup(e.target.files[0]).finally(() => e.target.value = '');
   $('#csvout').onclick = () => exportCSV(false);
@@ -1061,6 +1160,7 @@ async function viewSettings() {
 }
 async function exportBackup() {
   const stores = {}; for (const s of ['equipment', 'cases', 'records', 'meta']) stores[s] = await all(s);
+  stores.meta = stores.meta.filter(m => m.key !== TEMPLATE_KEY); // the approved template is registered again from the admin's files
   const photos = await all('photos'), files = [];
   stores.photos = photos.map(({ blob, ...rest }) => { files.push({ name: `photos/${rest.id}`, data: blob }); return rest; });
   const zip = await makeZip([{ name: 'backup.json', data: JSON.stringify({ schema: BACKUP_SCHEMA, app_version: APP_VERSION, exported_at: nowIso(), ...stores }) }, ...files]);
@@ -1098,6 +1198,7 @@ async function restoreBackup(file) {
   const ok = await ask('バックアップから復元しますか？', `<p>設備 ${b.equipment.length}台・写真 ${b.photos.length}枚・案件 ${b.cases.length}件・点検 ${b.records.length}件（${esc(fmt(b.exported_at))} 書き出し）。中身の照合はすべて合格しました。</p>
     <p class="muted">今この端末にあるデータは置き換わります。途中で失敗した場合は、元のデータが残ります。</p>`, '置き換えて復元', true);
   if (!ok) return;
+  const keepTemplate = await templateRecord();
   try {
     await new Promise((res, rej) => {
       db().then(d => {
@@ -1106,6 +1207,7 @@ async function restoreBackup(file) {
         for (const s of ['equipment', 'photos', 'cases', 'records', 'meta']) tx.objectStore(s).clear();
         for (const s of ['equipment', 'cases', 'records', 'meta']) for (const v of b[s]) tx.objectStore(s).put(v);
         for (const p of photos) tx.objectStore('photos').put(p);
+        if (keepTemplate) tx.objectStore('meta').put(keepTemplate);
       }, rej);
     });
   } catch (e) { return toast('復元できませんでした（元のデータは残っています）：' + e.message); }

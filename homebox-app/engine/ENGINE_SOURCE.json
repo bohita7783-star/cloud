@@ -1,0 +1,12 @@
+{
+  "converter_release": "field_survey_converter_v2_4_2_homebox_preview",
+  "converter_version": "2.4.2-homebox-preview",
+  "note": "変換ツールのリリースと同じファイル。ここで直接編集しない（変換ツール側で直し、テストしてから複製する）。",
+  "sha256": {
+    "approval.py": "145c97e6f9743ce5cdbf26ba363872fd7b671b5cae4e1833f5fca5103c797ded",
+    "case_exports.py": "5ed6b105d799afdd6b7263fb413a1ac9d76f7f886a7d6798f2fda055710d9a4c",
+    "converter_mobile.py": "e87c7a55b84e2e8878ff79cf518523c91b9cf5cf5b62df3c5d83255eeadb6311",
+    "engine_policy.py": "07f63e1e534eda6590fd9f87805e8a12333899011ab9c15b9eb25c2abad8990a",
+    "homebox_adapter.py": "97a0603527f16e2a824268c362c796c9ba467a71ed2af7db31fa069a33904811"
+  }
+}

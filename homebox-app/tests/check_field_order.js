@@ -15,5 +15,5 @@ const expected = [
 assert.strictEqual(rows.length,17);
 assert.deepStrictEqual(rows.map(r=>[r[1],r[2]]),expected);
 assert.strictEqual((source.match(/const EXTRA_FIELDS = \[/g)||[]).length,1);
-assert(source.includes("const APP_VERSION = '0.1.4'"));
+assert(source.includes("const APP_VERSION = '0.2.0'"));
 console.log('17-item template: order, names and keys MATCH');
