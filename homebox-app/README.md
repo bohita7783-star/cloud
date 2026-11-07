@@ -13,7 +13,7 @@
 3. 設定 →「消されにくい設定」を有効にする。
 4. 設定 →「空のCSVひな形」で台帳の形を確認し、会社台帳を CSV で取り込む（取り込んだ値は「未確認」）。
 5. 「撮る」で設備を選んで撮影 → 異常案件で写真を選び、説明を書いて「報告書パッケージを書き出す」。
-6. Termux で `bash ~/FS_Phone_Converter_v2_4_0/run_homebox.sh` → `Download/FS_変換結果` に会社様式の Excel。
+6. Termux で `bash ~/FS_Phone_Converter_v2_4_1/run_homebox.sh` → `Download/FS_変換結果` に会社様式の Excel。
 
 ## できること（v0.1）
 

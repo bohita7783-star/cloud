@@ -671,7 +671,7 @@ async function viewCase(id) {
     <div class="row"><button class="btn primary" id="export">報告書パッケージを書き出す</button><button class="btn red small" id="delc">案件を削除</button></div>
     <details class="more"><summary>書き出したあとの手順</summary><ol class="small">
       <li>ダウンロードに <span class="mono">HB-REPORT-${esc(c.id)}.zip</span> ができます。</li>
-      <li>Termux で <span class="mono">bash ~/FS_Phone_Converter_v2_4_0/run_homebox.sh</span> を実行すると、承認済みの会社様式に変換されます。</li>
+      <li>Termux で <span class="mono">bash ~/FS_Phone_Converter_v2_4_1/run_homebox.sh</span> を実行すると、承認済みの会社様式に変換されます。</li>
       <li>完成品は <span class="mono">Download/FS_変換結果</span> に入ります。印刷前に必ず内容を確認してください。</li></ol></details>
     ${c.exportedAt ? `<p class="muted small">前回の書き出し：${esc(fmt(c.exportedAt))}</p>` : ''}</section>`;
   let timer;

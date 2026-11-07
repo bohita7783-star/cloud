@@ -12,7 +12,7 @@ flowchart LR
     FS[Field Survey<br/>既存の入力アプリ]
     PKG[(HB-REPORT-案件ID.zip<br/>hb-report-package/1)]
     FSX[(Field Survey<br/>XLSX＋写真ZIP)]
-    CV[変換ツール v2.4.0<br/>Termux / Python]
+    CV[変換ツール v2.4.1<br/>Termux / Python]
     HB -- 報告書パッケージを書き出す --> PKG
     FS -- エクスポート --> FSX
     PKG --> CV
