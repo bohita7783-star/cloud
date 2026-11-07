@@ -170,33 +170,43 @@ details.more summary{cursor:pointer;font-weight:800}
    a file the user exports: backup ZIP, ledger CSV, or a report package for
    the Field Survey converter (hb-report-package/1).
    ==================================================================== */
-const APP_VERSION = '0.1.0';
+const APP_VERSION = '0.1.1';
 const DB_NAME = 'homebox', DB_VERSION = 1;
 const PKG_SCHEMA = 'hb-report-package/1', BACKUP_SCHEMA = 'hb-backup/1';
 const MAX_REPORT_PHOTOS = 3, MAX_TIMELINE = 8;
 const KINDS = ['銘板', '全景', '圧力計', '異常箇所', 'その他'];
 const CATEGORIES = ['ポンプ', 'ファン・送風機', '発電機', 'ボイラー・熱源', '空調機', '電気設備', '給排水', '消防・防災', 'その他'];
-// 17-item ledger. Items marked prov:true are provisional until the official
-// template is confirmed; change them here only (stored by key, not by label).
+// The official 17-item ledger (HomeBox用17項目テンプレート). Stored by key, so the
+// display order or wording can change without losing values.
 const FIELDS = [
   { key: 'maker', label: '製造者名' },
-  { key: 'model', label: '型式', prov: true },
   { key: 'equip_no', label: '機器番号' },
   { key: 'serial_no', label: '製造番号' },
   { key: 'made', label: '製造年月日' },
-  { key: 'installed', label: '設置年月日', prov: true },
+  { key: 'installed', label: '設置年月日' },
   { key: 'location', label: '設置場所' },
-  { key: 'system', label: '系統', prov: true },
+  { key: 'kind_mass', label: '種類と質量' },
+  { key: 'motor_maker', label: '電動機メーカー' },
+  { key: 'motor_type', label: '電動機形式' },
   { key: 'motor_kw', label: '電動機出力', unit: 'kW' },
+  { key: 'voltage_class', label: '電圧区分' },
   { key: 'rated_a', label: '定格電流', unit: 'A' },
-  { key: 'rated_v', label: '定格電圧', unit: 'V', prov: true },
+  { key: 'rpm', label: '回転数', unit: 'min⁻¹' },
   { key: 'bore', label: '口径' },
   { key: 'head', label: '揚程', unit: 'm' },
-  { key: 'airflow', label: '風量', unit: 'm³/min', prov: true },
+  { key: 'tank_volume', label: '圧力タンク容量', unit: 'L' },
   { key: 'life', label: '標準耐用年数', unit: '年' },
-  { key: 'cycle', label: '点検周期', prov: true },
-  { key: 'note', label: '備考', prov: true },
 ];
+// Extension items (not part of the official 17). Kept from v0.1.0 under the same keys.
+const EXTRA_FIELDS = [
+  { key: 'model', label: '型式' },
+  { key: 'system', label: '系統' },
+  { key: 'rated_v', label: '定格電圧', unit: 'V' },
+  { key: 'airflow', label: '風量', unit: 'm³/min' },
+  { key: 'cycle', label: '点検周期' },
+  { key: 'note', label: '備考' },
+];
+const ALL_FIELDS = [...FIELDS, ...EXTRA_FIELDS.map(f => ({ ...f, extra: true }))];
 const STATUS = { todo: '未確認', ok: '確認済', na: '対象外' };
 // Incident form = Field Survey template field names (the converter maps them 1:1).
 const CASE_FIELDS = [
@@ -307,20 +317,27 @@ async function makeZip(entries) {
   end.setUint32(0, 0x06054b50, true); end.setUint16(8, entries.length, true); end.setUint16(10, entries.length, true); end.setUint32(12, size, true); end.setUint32(16, offset, true);
   return new Blob([...parts, ...central, end.buffer], { type: 'application/zip' });
 }
+const ZIP_MAX_BYTES = 1024 * 1024 * 1024, ZIP_MAX_ENTRIES = 50000, ZIP_MAX_ENTRY = 200 * 1024 * 1024;
 async function readZip(blob) {
+  if (blob.size > ZIP_MAX_BYTES) throw new Error('ファイルが大きすぎます（1GBまで）');
+  let total = 0;
   const buf = new Uint8Array(await blob.arrayBuffer()), dv = new DataView(buf.buffer), dec = new TextDecoder(), out = new Map();
   let e = buf.length - 22; while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
   if (e < 0) throw new Error('ZIPファイルではありません');
   let p = dv.getUint32(e + 16, true); const n = dv.getUint16(e + 10, true);
+  if (n > ZIP_MAX_ENTRIES) throw new Error('ZIP内のファイルが多すぎます');
   for (let i = 0; i < n; i++) {
     if (dv.getUint32(p, true) !== 0x02014b50) throw new Error('ZIPが壊れています');
-    const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lho = dv.getUint32(p + 42, true);
+    const method = dv.getUint16(p + 10, true), crc = dv.getUint32(p + 16, true), usize = dv.getUint32(p + 24, true), csize = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lho = dv.getUint32(p + 42, true);
     const name = dec.decode(buf.subarray(p + 46, p + 46 + nl));
+    if (usize > ZIP_MAX_ENTRY || (total += usize) > ZIP_MAX_BYTES * 2) throw new Error('展開後のサイズが大きすぎます');
+    if (name.startsWith('/') || name.split('/').includes('..') || out.has(name)) throw new Error('ZIP内のファイル名が不正です');
     const start = lho + 30 + dv.getUint16(lho + 26, true) + dv.getUint16(lho + 28, true), raw = buf.subarray(start, start + csize);
     let data;
     if (method === 0) data = raw;
     else if (method === 8 && 'DecompressionStream' in window) data = new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
     else throw new Error('対応していない圧縮形式です');
+    if (data.length !== usize || crc32(data) !== crc) throw new Error('ZIPが壊れています（' + name + '）');
     out.set(name, data);
     p += 46 + nl + xl + cl;
   }
@@ -344,7 +361,7 @@ const csvCell = v => { v = String(v ?? ''); if (/^[=+\-@\t\r]/.test(v)) v = "'" 
 function decodeText(buf) { try { return new TextDecoder('utf-8', { fatal: true }).decode(buf).replace(/^﻿/, ''); } catch (_) { return new TextDecoder('shift_jis').decode(buf); } }
 
 /* ---------- domain ---------- */
-const emptyFields = () => Object.fromEntries(FIELDS.map(f => [f.key, { v: '', st: 'todo', src: '' }]));
+const emptyFields = () => Object.fromEntries(ALL_FIELDS.map(f => [f.key, { v: '', st: 'todo', src: '' }]));
 const confirmed = eq => FIELDS.filter(f => eq.fields?.[f.key]?.st === 'ok').length;
 const eqLocation = eq => eq?.fields?.location?.v || eq?.area || '';
 async function newEquipment(data, keepId) {
@@ -357,15 +374,51 @@ async function newEquipment(data, keepId) {
   const eq = { id, name: data.name, category: data.category || 'その他', area: data.area || '', qr: data.qr || '', fields: emptyFields(), createdAt: nowIso(), updatedAt: nowIso() };
   await put('equipment', eq); return eq;
 }
+// Capture time with its evidence: EXIF DateTimeOriginal > file timestamp > registration time.
+function exifDate(u8) {
+  try {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    if (dv.getUint16(0) !== 0xFFD8) return null;
+    let o = 2;
+    while (o + 10 < dv.byteLength) {
+      const marker = dv.getUint16(o), len = dv.getUint16(o + 2);
+      if ((marker & 0xFF00) !== 0xFF00 || marker === 0xFFDA) return null;
+      if (marker === 0xFFE1 && dv.getUint32(o + 4) === 0x45786966) {
+        const t = o + 10, le = dv.getUint16(t) === 0x4949;
+        const g16 = x => dv.getUint16(t + x, le), g32 = x => dv.getUint32(t + x, le);
+        const ifd = off => { const n = g16(off), out = {}; for (let i = 0; i < n; i++) { const e = off + 2 + i * 12; out[g16(e)] = { count: g32(e + 4), at: e + 8 }; } return out; };
+        const str = ent => { const at = ent.count > 4 ? g32(ent.at) : ent.at; let r = ''; for (let i = 0; i < ent.count - 1; i++) r += String.fromCharCode(dv.getUint8(t + at + i)); return r; };
+        const i0 = ifd(g32(4));
+        if (!i0[0x8769]) return null;
+        const ex = ifd(g32(i0[0x8769].at));
+        const m = ex[0x9003] && str(ex[0x9003]).match(/^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+        if (!m) return null;
+        const local = `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}`, tz = ex[0x9011] ? str(ex[0x9011]) : '';
+        return local + (/^[+-]\d{2}:\d{2}$/.test(tz) ? tz : tzSuffix(new Date(local)));
+      }
+      o += 2 + len;
+    }
+  } catch (_) { }
+  return null;
+}
+function captureTime(file, data) {
+  const exif = exifDate(data);
+  if (exif) return [exif, 'EXIF'];
+  if (file.lastModified) return [withTz(localInput(new Date(file.lastModified))), 'ファイル日時'];
+  return [nowIso(), '登録時刻'];
+}
 async function savePhoto(file, eq, kind, caseId) {
   const prefix = caseId || 'PH' + ymd();
   const seq = await counter(`seq:${prefix}:${eq.id}`);
   const ext = /png/.test(file.type) ? 'png' : /webp/.test(file.type) ? 'webp' : 'jpg';
   const data = new Uint8Array(await file.arrayBuffer());
+  const hash = await sha256(data);
+  if (!hash) throw new Error('この画面は安全な接続（HTTPS）で開いてください。写真の照合値を作れません');
+  const [takenAt, takenSource] = captureTime(file, data);
   const photo = {
     id: rid('PH'), equipmentId: eq.id, caseId: caseId || null, kind, seq,
     name: `${prefix}_${eq.id}_${pad(seq, 3)}_${kind}.${ext}`, originalName: file.name || '',
-    takenAt: nowIso(), type: file.type || 'image/jpeg', size: data.length, sha256: await sha256(data),
+    takenAt, takenSource, registeredAt: nowIso(), type: file.type || 'image/jpeg', size: data.length, sha256: hash,
     blob: new Blob([data], { type: file.type || 'image/jpeg' }), thumb: await thumbnail(file),
     caption: '', place: eqLocation(eq), mark: '',
   };
@@ -394,7 +447,13 @@ function caseProblems(c, photos) {
   const p = [];
   CASE_FIELDS.filter(f => f.req).forEach(f => { if (!String(c.data[f.k] || '').trim()) p.push(`「${f.k}」が空です`); });
   if (c.selected.length > MAX_REPORT_PHOTOS) p.push(`報告書の写真は${MAX_REPORT_PHOTOS}枚までです（今は${c.selected.length}枚）`);
-  c.selected.forEach((id, i) => { const ph = photos.find(x => x.id === id); if (!ph) p.push(`写真${i + 1}が見つかりません`); else if (!ph.caption.trim()) p.push(`写真${i + 1}（${ph.kind}）の説明文が空です`); });
+  if (c.selected.length && !c.equipmentId) p.push('写真を使うには、対象の設備を選んでください');
+  c.selected.forEach((id, i) => {
+    const ph = photos.find(x => x.id === id);
+    if (!ph) return p.push(`写真${i + 1}が見つかりません`);
+    if (ph.equipmentId !== c.equipmentId) p.push(`写真${i + 1}は別の設備（${ph.equipmentId}）の写真です`);
+    if (!(ph.caption || '').trim()) p.push(`写真${i + 1}（${ph.kind}）の説明文が空です`);
+  });
   const hashes = c.selected.map(id => photos.find(x => x.id === id)?.sha256).filter(Boolean);
   if (new Set(hashes).size !== hashes.length) p.push('まったく同じ画像が2枚以上選ばれています（変換ツールが停止します）');
   if (c.timeline.length > MAX_TIMELINE) p.push(`対応経過は${MAX_TIMELINE}件までです`);
@@ -405,10 +464,16 @@ async function buildPackage(c) {
   const eq = await get('equipment', c.equipmentId), photos = [], files = [];
   for (const [i, pid] of c.selected.entries()) {
     const ph = await get('photos', pid);
+    if (!ph) throw new Error(`写真${i + 1}が見つかりません`);
+    if (ph.equipmentId !== c.equipmentId) throw new Error(`写真${i + 1}は別の設備の写真です`);
     const data = new Uint8Array(await ph.blob.arrayBuffer()), member = 'photos/' + ph.name;
+    const hash = await sha256(data);
+    if (!hash) throw new Error('安全な接続（HTTPS）で開いてください。写真の照合ができません');
+    if (ph.sha256 && ph.sha256 !== hash) throw new Error(`写真${i + 1}の中身が保存時と違います（${ph.name}）`);
     files.push({ name: member, data });
-    photos.push({ ID: ph.id, '写真番号': i + 1, '撮影日時': ph.takenAt, '撮影場所': ph.place || null, '元写真': member,
-      '写真右側の説明文': ph.caption, '注釈・マーキングの指示': ph.mark || null, '種別': ph.kind, sha256: ph.sha256 || await sha256(data) });
+    photos.push({ ID: ph.id, '写真番号': i + 1, '撮影日時': ph.takenAt, '撮影日時の根拠': ph.takenSource || '登録時刻',
+      '登録日時': ph.registeredAt || ph.takenAt, '撮影場所': ph.place || null, '元写真': member,
+      '写真右側の説明文': ph.caption, '注釈・マーキングの指示': ph.mark || null, '種別': ph.kind, sha256: hash });
   }
   const kase = { ID: c.id, '設備ID': c.equipmentId || null };
   for (const f of CASE_FIELDS) {
@@ -444,7 +509,7 @@ function setTab(h) {
 }
 function matches(eq, q) {
   if (!q) return true;
-  const hay = [eq.id, eq.name, eq.category, eq.area, eq.qr, ...FIELDS.map(f => eq.fields?.[f.key]?.v)].join(' ').toLowerCase();
+  const hay = [eq.id, eq.name, eq.category, eq.area, eq.qr, ...ALL_FIELDS.map(f => eq.fields?.[f.key]?.v)].join(' ').toLowerCase();
   return q.toLowerCase().split(/\s+/).every(w => hay.includes(w));
 }
 
@@ -534,9 +599,9 @@ async function viewEq(id) {
   </section>
   <section class="card">
     <div class="sec-title"><h2 style="font-size:18px">設備台帳（${FIELDS.length}項目）</h2><button class="btn small primary" id="saveL">台帳を保存</button></div>
-    <p class="muted small">値ごとに「確認済／未確認／対象外」と、どこで確かめたか（銘板写真、図面など）を残せます。<span class="badge prov">仮</span>は正式テンプレートで確定する項目です。</p>
+    <p class="muted small">値ごとに「確認済／未確認／対象外」と、どこで確かめたか（銘板写真、図面など）を残せます。会社の台帳が正本です。ここでの確認結果は、会社の台帳を直すための候補として使います。</p>
     <div class="ledger-wrap"><table class="ledger"><tbody>
-    ${FIELDS.map((f, i) => { const v = eq.fields[f.key] || { v: '', st: 'todo', src: '' }; return `<tr><th scope="row"><label for="lv-${i}">${esc(f.label)}</label>${f.prov ? ' <span class="badge prov">仮</span>' : ''}${f.unit ? `<div class="muted small">単位 ${esc(f.unit)}</div>` : ''}</th>
+    ${ALL_FIELDS.map((f, i) => { const v = eq.fields[f.key] || { v: '', st: 'todo', src: '' }; return `${i === FIELDS.length ? '<tr><th colspan="2" style="padding-top:18px"><span class="badge prov">追加項目</span> <span class="muted small">17項目以外。機器の種類に応じて使う</span></th></tr>' : ''}<tr><th scope="row"><label for="lv-${i}">${esc(f.label)}</label>${f.unit ? `<div class="muted small">単位 ${esc(f.unit)}</div>` : ''}</th>
       <td><div class="cell"><input type="text" id="lv-${i}" value="${esc(v.v)}">
       <div class="row"><select id="ls-${i}" aria-label="${esc(f.label)}の確認状況">${Object.entries(STATUS).map(([k, l]) => `<option value="${k}" ${v.st === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <input type="text" id="lc-${i}" style="width:auto;min-width:0;flex:1 1 7em" value="${esc(v.src)}" placeholder="出典（例：銘板写真）" aria-label="${esc(f.label)}の出典"></div></div></td></tr>`; }).join('')}
@@ -551,7 +616,7 @@ async function viewEq(id) {
   </section>
   <section class="card"><h2 style="font-size:18px">この設備の異常案件</h2>${myCases.length ? `<div class="list">${myCases.map(caseItem).join('')}</div>` : emptyBox('この設備の異常案件はありません。')}</section>`;
   $('#saveL').onclick = async () => {
-    FIELDS.forEach((f, i) => { eq.fields[f.key] = { v: $('#lv-' + i).value.trim(), st: $('#ls-' + i).value, src: $('#lc-' + i).value.trim() }; });
+    ALL_FIELDS.forEach((f, i) => { eq.fields[f.key] = { v: $('#lv-' + i).value.trim(), st: $('#ls-' + i).value, src: $('#lc-' + i).value.trim() }; });
     eq.updatedAt = nowIso(); await put('equipment', eq); toast('台帳を保存しました'); viewEq(id);
   };
   $('#mkcase').onclick = async () => { const c = await newCase(id); location.hash = '#case/' + c.id; };
@@ -561,7 +626,7 @@ async function viewEq(id) {
 async function openPhoto(pid) {
   const p = await get('photos', pid), url = URL.createObjectURL(p.blob), d = $('#modal');
   d.innerHTML = `<form method="dialog" style="display:grid;gap:10px"><img src="${url}" alt="${esc(p.kind)}の写真" style="max-width:100%;border-radius:12px">
-    <span class="mono">${esc(p.name)}</span><dl class="kv"><dt>撮影</dt><dd>${esc(fmt(p.takenAt))}</dd><dt>大きさ</dt><dd>${(p.size / 1024).toFixed(0)} KB</dd><dt>SHA-256</dt><dd class="mono">${esc((p.sha256 || '—').slice(0, 16))}…</dd></dl>
+    <span class="mono">${esc(p.name)}</span><dl class="kv"><dt>撮影</dt><dd>${esc(fmt(p.takenAt))}（${esc(p.takenSource || '登録時刻')}）</dd><dt>登録</dt><dd>${esc(fmt(p.registeredAt || p.takenAt))}</dd><dt>大きさ</dt><dd>${(p.size / 1024).toFixed(0)} KB</dd><dt>SHA-256</dt><dd class="mono">${esc((p.sha256 || '—').slice(0, 16))}…</dd></dl>
     <div class="row" style="justify-content:flex-end"><button class="btn red small" value="delete">削除</button><button class="btn primary" value="close">閉じる</button></div></form>`;
   d.onclose = async () => {
     URL.revokeObjectURL(url);
@@ -622,7 +687,8 @@ async function viewShoot(param) {
     const eq = eqs.find(x => x.id === sel), kind = $('input[name=kind]:checked').value;
     for (const file of e.target.files) {
       if (!/^image\//.test(file.type)) { toast('画像ではないファイルは保存しません'); continue; }
-      const ph = await savePhoto(file, eq, kind, caseId || null);
+      let ph;
+      try { ph = await savePhoto(file, eq, kind, caseId || null); } catch (err) { toast(err.message); break; }
       if (kase && kase.selected.length < MAX_REPORT_PHOTOS) { kase.selected.push(ph.id); await put('cases', kase); }
       $('#done').hidden = false; $('#shots').insertAdjacentHTML('afterbegin', photoCard(ph));
       if (!/jpe?g|png|webp/.test(file.type)) toast('この形式は報告書の変換に使えない場合があります');
@@ -671,7 +737,7 @@ async function viewCase(id) {
     <div class="row"><button class="btn primary" id="export">報告書パッケージを書き出す</button><button class="btn red small" id="delc">案件を削除</button></div>
     <details class="more"><summary>書き出したあとの手順</summary><ol class="small">
       <li>ダウンロードに <span class="mono">HB-REPORT-${esc(c.id)}.zip</span> ができます。</li>
-      <li>Termux で <span class="mono">bash ~/FS_Phone_Converter_v2_4_1/run_homebox.sh</span> を実行すると、承認済みの会社様式に変換されます。</li>
+      <li>Termux で <span class="mono">bash ~/FS_Phone_Converter_v2_4_2/run_homebox.sh</span> を実行すると、承認済みの会社様式に変換されます。</li>
       <li>完成品は <span class="mono">Download/FS_変換結果</span> に入ります。印刷前に必ず内容を確認してください。</li></ol></details>
     ${c.exportedAt ? `<p class="muted small">前回の書き出し：${esc(fmt(c.exportedAt))}</p>` : ''}</section>`;
   let timer;
@@ -682,7 +748,12 @@ async function viewCase(id) {
   };
   const later = () => { clearTimeout(timer); timer = setTimeout(save, 500); };
   V().addEventListener('input', e => { if (e.target.closest('#captions') || e.target.closest('#tl')) return; later(); });
-  V().addEventListener('change', e => { if (e.target.id === 'c-eq') { save().then(() => viewCase(id)); } else if (!e.target.closest('#captions') && !e.target.closest('#tl')) later(); });
+  V().addEventListener('change', async e => { if (e.target.id === 'c-eq') {
+      const before = c.selected.length; await save();
+      const photos = await all('photos');
+      c.selected = c.selected.filter(pid => photos.find(x => x.id === pid)?.equipmentId === c.equipmentId);
+      if (c.selected.length !== before) { await put('cases', c); toast('別の設備の写真を選択から外しました'); }
+      viewCase(id); } else if (!e.target.closest('#captions') && !e.target.closest('#tl')) later(); });
   const showProblems = async () => { const photos = await all('photos'); const p = caseProblems(c, photos); $('#probs').innerHTML = p.length ? `<div class="problems"><b>書き出す前に直すところ</b><ul>${p.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '<p class="badge ok" style="justify-self:start">書き出せます</p>'; $('#export').disabled = p.length > 0; };
   // photo selection + captions (stored on the photo itself)
   const drawCaptions = async () => {
@@ -723,7 +794,9 @@ async function viewCase(id) {
   $('#export').onclick = async () => {
     await save(); const photos = await all('photos');
     if (caseProblems(c, photos).length) return toast('直すところがあります');
-    const blob = await buildPackage(c); download(blob, `HB-REPORT-${c.id}.zip`);
+    let blob;
+    try { blob = await buildPackage(c); } catch (err) { return toast('書き出しを止めました：' + err.message); }
+    download(blob, `HB-REPORT-${c.id}.zip`);
     c.exportedAt = nowIso(); await put('cases', c); toast('報告書パッケージを書き出しました');
   };
   $('#delc').onclick = async () => { if (await ask('案件を削除しますか？', `<p>${esc(c.id)} ${esc(c.data['件名'])}</p><p class="muted">写真は設備に残ります。案件の入力内容と対応経過は元に戻せません。</p>`, '削除する', true)) { await del('cases', c.id); toast('削除しました'); location.hash = '#cases'; } };
@@ -736,18 +809,19 @@ async function viewSettings() {
   try { persisted = await navigator.storage?.persisted?.(); est = await navigator.storage?.estimate?.(); } catch (_) { }
   V().innerHTML = `
   <section class="card"><h1 style="font-size:22px">設定・データ</h1>
-    <dl class="kv"><dt>保存場所</dt><dd>この端末のブラウザの中だけ（外部へは送信しません）</dd>
+    <dl class="kv"><dt>保存場所</dt><dd>この端末のブラウザの中だけ。業務データを外部へ送る処理はありません（アプリの更新確認のため、開いたときに配信元へ接続します）</dd>
     <dt>消されにくい設定</dt><dd>${persisted ? '<span class="badge ok">有効</span>' : '<span class="badge todo">未設定</span> <button class="btn small" id="persist">有効にする</button>'}</dd>
     <dt>使用量</dt><dd>${est ? (est.usage / 1048576).toFixed(1) + ' MB' : '不明'}</dd><dt>版</dt><dd>${APP_VERSION}</dd></dl></section>
   <section class="card"><h2 style="font-size:18px">バックアップ</h2>
     <p class="muted small">機種変更や故障に備えて、定期的に書き出し、会社が認めた保存先に置いてください。写真は元のまま入ります。</p>
     <div class="row"><button class="btn primary" id="bk">バックアップを書き出す</button><label class="btn" for="rs">バックアップから復元</label><input type="file" id="rs" accept=".zip,application/zip" hidden></div></section>
   <section class="card"><h2 style="font-size:18px">設備台帳CSV</h2>
-    <p class="muted small">1行目は見出し：設備ID, 設備名, 分類, 場所の区分, QR, ${FIELDS.map(f => esc(f.label)).join(', ')}。Excelで保存したCSV（UTF-8・Shift_JIS）を読めます。取り込んだ値は「未確認」になります。</p>
+    <p class="muted small">1行目は見出し：設備ID, 設備名, 分類, 場所の区分, QR, 17項目, 追加項目（${ALL_FIELDS.map(f => esc(f.label)).join(', ')}）。Excelで保存したCSV（UTF-8・Shift_JIS）を読めます。取り込んだ値は「未確認」になります。</p>
     <div class="row"><button class="btn" id="csvout">台帳CSVを書き出す</button><button class="btn" id="csvtpl">空のCSVひな形</button><label class="btn primary" for="csvin">台帳CSVを取り込む</label><input type="file" id="csvin" accept=".csv,text/csv" hidden></div></section>
-  <section class="card"><h2 style="font-size:18px">17項目の定義</h2>
-    <div class="chips">${FIELDS.map(f => `<span class="badge ${f.prov ? 'prov' : ''}">${esc(f.label)}${f.prov ? '（仮）' : ''}</span>`).join('')}</div>
-    <p class="muted small">（仮）の項目は、正式な17項目テンプレートで確定します。値は項目のキーで保存しているので、名前を変えてもデータは残ります。</p></section>
+  <section class="card"><h2 style="font-size:18px">台帳の項目</h2>
+    <p class="small"><b>17項目（正式テンプレート）</b></p><div class="chips">${FIELDS.map(f => `<span class="badge">${esc(f.label)}</span>`).join('')}</div>
+    <p class="small"><b>追加項目</b></p><div class="chips">${EXTRA_FIELDS.map(f => `<span class="badge prov">${esc(f.label)}</span>`).join('')}</div>
+    <p class="muted small">値は項目のキーで保存しているので、表示名や並び順を変えてもデータは残ります。</p></section>
   <section class="card"><h2 style="font-size:18px">全データを消す</h2><p class="muted small">先にバックアップを書き出してください。</p><button class="btn red" id="wipe">この端末のデータをすべて消す</button></section>`;
   $('#persist')?.addEventListener('click', async () => { const ok = await navigator.storage.persist(); toast(ok ? '有効にしました' : 'ブラウザに許可されませんでした（ホーム画面に追加すると通りやすくなります）'); viewSettings(); });
   $('#bk').onclick = exportBackup;
@@ -766,21 +840,49 @@ async function exportBackup() {
   toast(`バックアップを書き出しました（写真${photos.length}枚）`);
 }
 async function restoreBackup(file) {
+  // Nothing on this device is touched until the whole backup has been checked.
   let z, b;
-  try { z = await readZip(file); b = JSON.parse(new TextDecoder().decode(z.get('backup.json'))); } catch (e) { return toast('バックアップを読めません：' + e.message); }
-  if (b.schema !== BACKUP_SCHEMA) return toast('ホームボックスのバックアップではありません');
-  const missing = b.photos.filter(p => !z.has('photos/' + p.id)).length;
-  const ok = await ask('バックアップから復元しますか？', `<p>設備 ${b.equipment.length}台・写真 ${b.photos.length}枚・案件 ${b.cases.length}件・点検 ${b.records.length}件（${esc(fmt(b.exported_at))} 書き出し）</p>
-    ${missing ? `<p style="color:var(--stamp)">写真${missing}枚の画像がZIPにありません。</p>` : ''}<p class="muted">今この端末にあるデータは、すべて置き換わります。</p>`, '置き換えて復元', true);
+  try { z = await readZip(file); b = JSON.parse(new TextDecoder().decode(z.get('backup.json'))); }
+  catch (e) { return toast('バックアップを読めません：' + e.message); }
+  const problems = [];
+  if (!b || b.schema !== BACKUP_SCHEMA) return toast('ホームボックスのバックアップではありません');
+  for (const s of ['equipment', 'photos', 'cases', 'records', 'meta']) if (!Array.isArray(b[s])) problems.push(`${s} がありません`);
+  if (problems.length) return toast('バックアップが不完全です：' + problems.join('、'));
+  const photos = [];
+  for (const p of b.photos) {
+    const d = z.get('photos/' + p.id);
+    if (!d) { problems.push(`写真の画像がありません：${p.name || p.id}`); continue; }
+    const h = await sha256(d);
+    if (p.sha256 && h && p.sha256 !== h) { problems.push(`写真の中身が違います：${p.name || p.id}`); continue; }
+    photos.push({ ...p, sha256: p.sha256 || h, blob: new Blob([d], { type: p.type || 'image/jpeg' }) });
+  }
+  const ids = s => new Set(b[s].map(x => x.id));
+  if (ids('equipment').size !== b.equipment.length || ids('photos').size !== b.photos.length || ids('cases').size !== b.cases.length) problems.push('IDが重複しています');
+  const need = [...z.values()].reduce((a, d) => a + d.length, 0);
+  try { const est = await navigator.storage?.estimate?.(); if (est && est.quota - est.usage < need * 1.5) problems.push('端末の空き容量が足りません'); } catch (_) { }
+  if (problems.length) {
+    await ask('このバックアップは復元できません', `<ul>${problems.slice(0, 8).map(x => `<li>${esc(x)}</li>`).join('')}</ul><p class="muted">この端末のデータは変更していません。</p>`, '閉じる');
+    return;
+  }
+  const ok = await ask('バックアップから復元しますか？', `<p>設備 ${b.equipment.length}台・写真 ${b.photos.length}枚・案件 ${b.cases.length}件・点検 ${b.records.length}件（${esc(fmt(b.exported_at))} 書き出し）。中身の照合はすべて合格しました。</p>
+    <p class="muted">今この端末にあるデータは置き換わります。途中で失敗した場合は、元のデータが残ります。</p>`, '置き換えて復元', true);
   if (!ok) return;
-  for (const s of ['equipment', 'photos', 'cases', 'records', 'meta']) await req((await os(s, 'readwrite')).clear());
-  for (const s of ['equipment', 'cases', 'records', 'meta']) for (const v of b[s]) await put(s, v);
-  for (const p of b.photos) { const d = z.get('photos/' + p.id); if (d) await put('photos', { ...p, blob: new Blob([d], { type: p.type }) }); }
+  try {
+    await new Promise((res, rej) => {
+      db().then(d => {
+        const tx = d.transaction(['equipment', 'photos', 'cases', 'records', 'meta'], 'readwrite');
+        tx.oncomplete = res; tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error || new Error('中断しました'));
+        for (const s of ['equipment', 'photos', 'cases', 'records', 'meta']) tx.objectStore(s).clear();
+        for (const s of ['equipment', 'cases', 'records', 'meta']) for (const v of b[s]) tx.objectStore(s).put(v);
+        for (const p of photos) tx.objectStore('photos').put(p);
+      }, rej);
+    });
+  } catch (e) { return toast('復元できませんでした（元のデータは残っています）：' + e.message); }
   toast('復元しました'); location.hash = '#home'; route();
 }
 async function exportCSV(templateOnly) {
-  const head = ['設備ID', '設備名', '分類', '場所の区分', 'QR', ...FIELDS.map(f => f.label)];
-  const rows = templateOnly ? [] : (await all('equipment')).sort((a, b) => a.id.localeCompare(b.id)).map(e => [e.id, e.name, e.category, e.area, e.qr, ...FIELDS.map(f => e.fields[f.key]?.v || '')]);
+  const head = ['設備ID', '設備名', '分類', '場所の区分', 'QR', ...ALL_FIELDS.map(f => f.label)];
+  const rows = templateOnly ? [] : (await all('equipment')).sort((a, b) => a.id.localeCompare(b.id)).map(e => [e.id, e.name, e.category, e.area, e.qr, ...ALL_FIELDS.map(f => e.fields[f.key]?.v || '')]);
   const text = '﻿' + [head, ...rows].map(r => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
   download(new Blob([text], { type: 'text/csv' }), templateOnly ? 'HB-LEDGER-TEMPLATE.csv' : `HB-LEDGER-${ymd()}.csv`);
 }
@@ -789,11 +891,11 @@ async function importCSV(file) {
   if (rows.length < 2) return toast('データ行がありません');
   const head = rows[0].map(h => h.trim()), col = n => head.indexOf(n);
   if (col('設備名') < 0) return toast('見出しに「設備名」がありません');
-  const known = FIELDS.filter(f => col(f.label) >= 0), existing = new Map((await all('equipment')).map(e => [e.id, e]));
+  const known = ALL_FIELDS.filter(f => col(f.label) >= 0), existing = new Map((await all('equipment')).map(e => [e.id, e]));
   const data = rows.slice(1).map(r => ({ id: (r[col('設備ID')] || '').trim(), name: (r[col('設備名')] || '').trim(), category: (r[col('分類')] || '').trim(), area: (r[col('場所の区分')] || '').trim(), qr: (r[col('QR')] || '').trim(),
     fields: Object.fromEntries(known.map(f => [f.key, (r[col(f.label)] || '').trim()])) })).filter(r => r.name);
   const upd = data.filter(r => existing.has(r.id)).length;
-  const ok = await ask('台帳CSVを取り込みますか？', `<p>${data.length}台（新規 ${data.length - upd}・更新 ${upd}）。読めた項目：${known.length}/${FIELDS.length}</p><p class="muted">取り込んだ値は「未確認」になります。現物や銘板で確かめてから「確認済」にしてください。</p>`, '取り込む');
+  const ok = await ask('台帳CSVを取り込みますか？', `<p>${data.length}台（新規 ${data.length - upd}・更新 ${upd}）。読めた項目：${known.length}/${ALL_FIELDS.length}（17項目 ${known.filter(f => !f.extra).length}/${FIELDS.length}）</p><p class="muted">取り込んだ値は「未確認」になります。現物や銘板で確かめてから「確認済」にしてください。</p>`, '取り込む');
   if (!ok) return;
   for (const r of data) {
     let eq = existing.get(r.id);

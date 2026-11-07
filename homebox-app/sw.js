@@ -1,7 +1,9 @@
 // HomeBox offline service worker. Scope: this folder only. A worker registered
 // for a deeper scope wins over a parent-folder worker, so the parent app's
 // cache never serves HomeBox files once this is installed.
-const CACHE = 'homebox-v0.1.0';
+// NOTE: this separates CACHING only. IndexedDB is shared by every page of the same
+// origin, so for business use host HomeBox on its own origin (see ARCHITECTURE.md).
+const CACHE = 'homebox-v0.1.1';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png'];
 
 self.addEventListener('install', e => e.waitUntil(

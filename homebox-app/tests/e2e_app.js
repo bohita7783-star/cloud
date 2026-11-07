@@ -1,6 +1,7 @@
 // End-to-end: drive the HomeBox app in Chromium with SYNTHETIC data and save the
 // report package + backup it produces.
-// Usage: node e2e_app.js <baseUrl> <outDir> <jpeg1> <jpeg2>   (two DIFFERENT synthetic JPEGs)
+// Usage: node e2e_app.js <baseUrl> <outDir> <jpeg1> <jpeg2>   (two DIFFERENT synthetic JPEGs;
+//        jpeg1 should carry EXIF DateTimeOriginal 2026:11:01 09:15:00 +09:00)
 const { chromium } = require('playwright');
 const fs = require('fs');
 const [base, out, jpeg, jpeg2] = process.argv.slice(2);
@@ -37,6 +38,8 @@ const must = (cond, msg) => { if (!cond) throw new Error(msg); };
   must((await p.inputValue('#lv-0')) === '架空機工', 'CSV value not imported');
   await p.selectOption('#ls-0', 'ok'); await p.fill('#lc-0', '銘板写真');
   await p.click('#saveL'); await p.waitForSelector('text=確認済 1/17');
+  must(await p.locator('text=追加項目').count() > 0, 'extension section missing');
+  must((await p.inputValue('#lv-' + 17)) === 'HB-65P', 'model should be the first extension item and keep its value');
   step('ledger saved with status and source');
 
   // Inspection record
@@ -54,6 +57,9 @@ const must = (cond, msg) => { if (!cond) throw new Error(msg); };
   const names = await p.$$eval('#shots .n', n => n.map(x => x.textContent));
   must(names.some(n => /_EQ-000006_001_銘板\.jpg$/.test(n)) && names.some(n => /_EQ-000006_002_圧力計\.jpg$/.test(n)), 'names: ' + names);
   step('photos saved with rule names: ' + names.join(' , '));
+  const src = await p.evaluate(async () => { const all = await new Promise(r => { const q = indexedDB.open('homebox'); q.onsuccess = () => { const t = q.result.transaction('photos').objectStore('photos').getAll(); t.onsuccess = () => r(t.result); }; }); return all.map(x => [x.kind, x.takenSource, x.takenAt]); });
+  must(src.some(([k, s, t]) => k === '銘板' && s === 'EXIF' && t.startsWith('2026-11-01T09:15:00+09:00')), 'EXIF capture time not used: ' + JSON.stringify(src));
+  step('capture time taken from EXIF, registration time kept separately');
   await p.screenshot({ path: out + '/shot-shoot.png' });
 
   // Incident from the equipment
@@ -80,6 +86,15 @@ const must = (cond, msg) => { if (!cond) throw new Error(msg); };
   await caps.nth(0).fill('架空：銘板。型式 HB-65P を確認。');
   await caps.nth(1).fill('架空：吐出圧力計 0.32 MPa。');
   await p.waitForTimeout(300);
+  // Switching the case to another equipment drops the photos of the old one
+  await p.selectOption('#c-eq', 'EQ-000007'); await p.waitForSelector('text=別の設備の写真を選択から外しました');
+  await p.waitForSelector('#export');
+  await p.selectOption('#c-eq', 'EQ-000006'); await p.waitForSelector('#pool .ph');
+  must((await p.locator('#captions [data-cap]').count()) === 0, 'selection should have been cleared');
+  await tiles.nth(1).click(); await tiles.nth(0).click(); await p.waitForSelector('#captions [data-cap]');
+  await caps.nth(0).fill('架空：銘板。型式 HB-65P を確認。'); await caps.nth(1).fill('架空：吐出圧力計 0.32 MPa。');
+  await p.waitForTimeout(300);
+  step('changing the equipment removes photos of the other equipment');
   // Timeline
   await p.click('#tl-add'); await p.locator('#tl textarea').first().fill('架空：運転電流を測定し、異音を確認');
   await p.locator('#tl input[data-k="測定数値など"]').first().fill('15.2 A');
@@ -96,6 +111,13 @@ const must = (cond, msg) => { if (!cond) throw new Error(msg); };
   await p.goto(base + '#settings'); await p.waitForSelector('#bk');
   const [bk] = await Promise.all([p.waitForEvent('download'), p.click('#bk')]);
   const bkPath = out + '/' + bk.suggestedFilename(); await bk.saveAs(bkPath);
+  // A damaged backup (one photo removed) must be refused without touching current data
+  await p.setInputFiles('#rs', { name: 'broken.zip', mimeType: 'application/zip', buffer: require('child_process').execFileSync('python3', ['-I', '-c', `import sys,zipfile,io\nsrc=zipfile.ZipFile(sys.argv[1]);out=io.BytesIO();z=zipfile.ZipFile(out,'w')\nnames=[n for n in src.namelist() if n.startswith('photos/')]\n[z.writestr(n,src.read(n)) for n in src.namelist() if n!=names[0]]\nz.close();sys.stdout.buffer.write(out.getvalue())`, bkPath]) });
+  await p.waitForSelector('dialog[open]'); must((await p.textContent('dialog')).includes('復元できません'), 'broken backup should be refused');
+  await p.click('dialog button[value=yes]');
+  await p.goto(base + '#eq/EQ-000006'); await p.waitForSelector('text=写真 2枚');
+  await p.goto(base + '#settings'); await p.waitForSelector('#wipe');
+  step('damaged backup refused; existing data untouched');
   await p.click('#wipe'); await p.waitForSelector('dialog[open]'); await p.click('dialog button[value=yes]');
   await p.waitForFunction(() => location.hash === '#home');
   await p.goto(base + '#eq'); await p.waitForSelector('.empty');
