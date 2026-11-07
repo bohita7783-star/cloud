@@ -1,0 +1,826 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; font-src 'self'; form-action 'none'; base-uri 'none'">
+<meta name="theme-color" content="#F5A13A">
+<title>ホームボックス</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<style>
+/* HomeBox v0.1 — design tokens taken from the HomeBox LP v0.1.1 (thick single-weight lines,
+   flat fills, hard offset shadows, safety orange, "点検済" stamp red). Work-tool restraint:
+   motion only as feedback. System fonts only: the app never loads anything from outside. */
+:root{
+  --paper:#FFF3DA; --surface:#FFFFFF; --fg:#2B231E; --muted:#6E5F54; --line:#EBD8B4;
+  --stroke:#2B231E; --hard:#2B231E; --sun:#FADF8C; --safety:#F5A13A; --safety-text:#A9580A;
+  --stamp:#D63A2C; --pipe:#36507F; --sky:#9CCBEA; --mint:#BFE6C4; --custard:#FCEDBE; --ok:#2E7D4F;
+  --f:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","BIZ UDPGothic","Noto Sans JP",system-ui,sans-serif;
+  --mono:ui-monospace,"SFMono-Regular",Menlo,"Noto Sans Mono",monospace;
+  --bw:3px; --pop:cubic-bezier(.34,1.56,.64,1);
+}
+@media (prefers-color-scheme: dark){:root{
+  --paper:#1D1814; --surface:#2A221C; --fg:#FFF0D6; --muted:#CBB79E; --line:#3D3229;
+  --stroke:#F3E1C2; --hard:#000; --sun:#E8CB6E; --safety-text:#FFB65C; --custard:#5A4A22; --ok:#7FD39B; color-scheme:dark}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-padding-bottom:calc(110px + env(safe-area-inset-bottom,0px));scroll-padding-top:70px}
+body{margin:0;background:var(--paper);color:var(--fg);font:500 16px/1.6 var(--f);padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px dashed var(--safety);outline-offset:3px}
+h1,h2,h3{margin:0;line-height:1.3;font-weight:900}
+[hidden]{display:none!important}
+.top{position:sticky;top:0;z-index:20;background:var(--paper);border-bottom:var(--bw) solid var(--stroke);
+  padding:calc(8px + env(safe-area-inset-top,0px)) max(14px,env(safe-area-inset-right,0px)) 8px max(14px,env(safe-area-inset-left,0px));
+  display:flex;align-items:center;gap:10px}
+.top svg{width:36px;height:36px;flex:none}
+.top b{font-size:18px;font-weight:900}
+.top .ver{margin-left:auto;font-size:12px;color:var(--muted)}
+main{max-width:860px;margin:0 auto;padding:14px max(14px,env(safe-area-inset-right,0px)) 24px max(14px,env(safe-area-inset-left,0px));display:grid;gap:16px}
+.card{background:var(--surface);border:var(--bw) solid var(--stroke);border-radius:22px;padding:16px;display:grid;gap:12px;min-width:0}
+.card.flat{border-color:var(--line)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.grow{flex:1 1 auto;min-width:0}
+.muted{color:var(--muted);font-size:14px}
+.small{font-size:13px}
+.mono{font-family:var(--mono);font-size:13px;overflow-wrap:anywhere}
+.eyebrow{font-size:12px;letter-spacing:.18em;font-weight:900;color:var(--safety-text)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:46px;padding:8px 18px;border:var(--bw) solid var(--stroke);border-radius:999px;background:var(--surface);
+  font-weight:800;box-shadow:0 4px 0 var(--hard);text-decoration:none;color:var(--fg);transition:transform .12s,box-shadow .12s}
+.btn:active{transform:translateY(4px);box-shadow:0 0 0 var(--hard)}
+.btn.primary{background:var(--safety);color:#2B231E}
+.btn.red{background:var(--stamp);color:#fff}
+.btn.ghost{box-shadow:none;border-color:var(--line)}
+.btn.small{min-height:36px;padding:4px 12px;font-size:14px;box-shadow:0 3px 0 var(--hard)}
+.btn[disabled]{opacity:.45;pointer-events:none}
+label.field{display:grid;gap:4px;font-size:14px;font-weight:800;min-width:0}
+label.field .req{color:var(--stamp)}
+label.field .note{font-weight:500;color:var(--muted);font-size:12px}
+input[type=text],input[type=search],input[type=datetime-local],input[type=time],input[type=number],select,textarea{
+  width:100%;min-height:44px;padding:8px 12px;border:2px solid var(--stroke);border-radius:14px;background:var(--paper);font-weight:500}
+textarea{min-height:84px;resize:vertical}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips input{position:absolute;opacity:0;pointer-events:none}
+.chips label{padding:6px 14px;border:2px solid var(--stroke);border-radius:999px;background:var(--paper);font-weight:800;font-size:14px;cursor:pointer}
+.chips input:checked+label{background:var(--sun);color:#2B231E;box-shadow:0 3px 0 var(--hard)}
+.chips input:focus-visible+label{outline:3px dashed var(--safety);outline-offset:2px}
+.badge{display:inline-block;padding:0 9px;border-radius:999px;border:2px solid var(--stroke);font-size:12px;font-weight:800;line-height:1.7;white-space:nowrap}
+.badge.ok{background:var(--mint);color:#2B231E}
+.badge.todo{border-style:dashed}
+.badge.na{border-color:transparent;background:var(--line);color:var(--muted)}
+.badge.prov{border-color:var(--safety);color:var(--safety-text)}
+.badge.stamp{border-color:var(--stamp);color:var(--stamp)}
+.list{display:grid;gap:10px}
+.item{display:flex;gap:12px;align-items:center;padding:12px 14px;border:2px solid var(--stroke);border-radius:18px;background:var(--surface);text-decoration:none;color:inherit;min-width:0}
+.item:active{transform:scale(.99)}
+.item .t{font-weight:900}
+.item .s{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.item .arrow{margin-left:auto;font-weight:900;color:var(--muted)}
+.meter{height:10px;border-radius:10px;background:var(--line);overflow:hidden;min-width:60px}
+.meter i{display:block;height:100%;background:var(--ok)}
+.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.ph{display:grid;gap:4px;border:2px solid var(--stroke);border-radius:14px;padding:6px;background:var(--surface);min-width:0;position:relative}
+.ph img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;background:var(--line)}
+.ph .n{font-family:var(--mono);font-size:11px;overflow-wrap:anywhere;line-height:1.35}
+.ph.sel{outline:4px solid var(--safety);outline-offset:1px}
+.ph .order{position:absolute;top:10px;left:10px;width:28px;height:28px;border-radius:50%;background:var(--safety);color:#2B231E;border:2px solid #2B231E;display:grid;place-items:center;font-weight:900}
+table.ledger{width:100%;border-collapse:collapse;table-layout:fixed}
+table.ledger td,table.ledger th{padding:8px 6px;border-bottom:2px solid var(--line);vertical-align:top;text-align:left}
+table.ledger th{font-size:13px;width:28%;font-weight:800}
+.ledger-wrap{overflow-x:auto}
+.ledger .cell{display:grid;gap:6px}
+.ledger .cell .row{gap:6px}
+.ledger select{min-height:36px;padding:4px 8px;width:auto}
+.ledger input{min-height:38px}
+.tl{display:grid;gap:10px;border:2px dashed var(--line);border-radius:16px;padding:12px}
+.problems{border:var(--bw) solid var(--stamp);border-radius:16px;padding:12px;background:var(--surface)}
+.problems li{color:var(--stamp);font-weight:700}
+.shutter{width:96px;height:96px;border-radius:50%;border:var(--bw) solid var(--stroke);background:var(--stamp);color:#fff;font-weight:900;font-size:17px;
+  box-shadow:0 6px 0 var(--hard),inset 0 0 0 9px var(--surface);display:grid;place-items:center;cursor:pointer}
+.shutter:active{transform:translateY(6px);box-shadow:0 0 0 var(--hard),inset 0 0 0 9px var(--surface)}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:var(--bw) solid var(--stroke);
+  display:grid;grid-template-columns:repeat(5,1fr);padding:6px max(6px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(6px,env(safe-area-inset-left,0px))}
+.tabs a{display:grid;justify-items:center;gap:2px;padding:4px 0;font-size:11px;font-weight:800;text-decoration:none;color:var(--muted);border-radius:14px}
+.tabs a svg{width:26px;height:26px}
+.tabs a[aria-current="page"]{color:var(--fg);background:var(--sun)}
+@media (prefers-color-scheme: dark){.tabs a[aria-current="page"]{color:#2B231E}}
+.tabs a.shoot{color:#fff}
+.tabs a.shoot span.c{width:48px;height:48px;margin-top:-22px;border-radius:50%;background:var(--stamp);border:var(--bw) solid var(--stroke);display:grid;place-items:center;box-shadow:0 4px 0 var(--hard)}
+.tabs a.shoot b{color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);opacity:0;z-index:50;
+  background:var(--fg);color:var(--paper);padding:10px 18px;border-radius:999px;font-weight:800;transition:transform .3s var(--pop),opacity .2s;max-width:90vw;text-align:center;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+dialog{border:var(--bw) solid var(--stroke);border-radius:22px;background:var(--surface);color:var(--fg);padding:18px;max-width:min(520px,92vw);box-shadow:0 8px 0 var(--hard)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.empty{display:grid;justify-items:center;text-align:center;gap:8px;padding:24px 12px;color:var(--muted)}
+.empty svg{width:72px;height:72px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;overflow-wrap:anywhere}
+.sec-title{display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap}
+details.more summary{cursor:pointer;font-weight:800}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="hako" viewBox="0 0 120 120">
+      <g stroke="#2B231E" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+        <path d="M47 27v-7q0-7 7-7h12q7 0 7 7v7" fill="none"/>
+        <rect x="22" y="38" width="76" height="64" rx="18" fill="#fff"/>
+        <rect x="15" y="26" width="90" height="22" rx="11" fill="#FCEDBE"/>
+      </g>
+      <circle cx="49" cy="68" r="4" fill="#2B231E"/><circle cx="71" cy="68" r="4" fill="#2B231E"/>
+      <path d="M55 78q5 5 10 0" fill="none" stroke="#2B231E" stroke-width="4" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M3 11h18M9 4h6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-cam" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="4" fill="none" stroke="currentColor" stroke-width="2.4"/><circle cx="12" cy="13.5" r="3.6" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M8 7l1.5-3h5L16 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><path d="M9 12h6M9 16h6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+  </defs>
+</svg>
+
+<header class="top">
+  <svg aria-hidden="true"><use href="#hako"/></svg>
+  <b>ホームボックス</b>
+  <span class="ver" id="ver"></span>
+</header>
+<main id="view" aria-live="polite"></main>
+
+<nav class="tabs" aria-label="メイン">
+  <a href="#home" data-tab="home"><svg aria-hidden="true"><use href="#i-home"/></svg>ホーム</a>
+  <a href="#eq" data-tab="eq"><svg aria-hidden="true"><use href="#i-box"/></svg>設備台帳</a>
+  <a href="#shoot" data-tab="shoot" class="shoot"><span class="c"><svg aria-hidden="true"><use href="#i-cam"/></svg></span><b>撮る</b></a>
+  <a href="#cases" data-tab="cases"><svg aria-hidden="true"><use href="#i-doc"/></svg>異常案件</a>
+  <a href="#settings" data-tab="settings"><svg aria-hidden="true"><use href="#i-gear"/></svg>設定</a>
+</nav>
+<div class="toast" id="toast" role="status"></div>
+<dialog id="modal"></dialog>
+
+<script>
+'use strict';
+/* ====================================================================
+   HomeBox v0.1 — offline equipment ledger, photos, inspections, incidents.
+   Data lives only in this browser (IndexedDB). The only way data leaves is
+   a file the user exports: backup ZIP, ledger CSV, or a report package for
+   the Field Survey converter (hb-report-package/1).
+   ==================================================================== */
+const APP_VERSION = '0.1.0';
+const DB_NAME = 'homebox', DB_VERSION = 1;
+const PKG_SCHEMA = 'hb-report-package/1', BACKUP_SCHEMA = 'hb-backup/1';
+const MAX_REPORT_PHOTOS = 3, MAX_TIMELINE = 8;
+const KINDS = ['銘板', '全景', '圧力計', '異常箇所', 'その他'];
+const CATEGORIES = ['ポンプ', 'ファン・送風機', '発電機', 'ボイラー・熱源', '空調機', '電気設備', '給排水', '消防・防災', 'その他'];
+// 17-item ledger. Items marked prov:true are provisional until the official
+// template is confirmed; change them here only (stored by key, not by label).
+const FIELDS = [
+  { key: 'maker', label: '製造者名' },
+  { key: 'model', label: '型式', prov: true },
+  { key: 'equip_no', label: '機器番号' },
+  { key: 'serial_no', label: '製造番号' },
+  { key: 'made', label: '製造年月日' },
+  { key: 'installed', label: '設置年月日', prov: true },
+  { key: 'location', label: '設置場所' },
+  { key: 'system', label: '系統', prov: true },
+  { key: 'motor_kw', label: '電動機出力', unit: 'kW' },
+  { key: 'rated_a', label: '定格電流', unit: 'A' },
+  { key: 'rated_v', label: '定格電圧', unit: 'V', prov: true },
+  { key: 'bore', label: '口径' },
+  { key: 'head', label: '揚程', unit: 'm' },
+  { key: 'airflow', label: '風量', unit: 'm³/min', prov: true },
+  { key: 'life', label: '標準耐用年数', unit: '年' },
+  { key: 'cycle', label: '点検周期', prov: true },
+  { key: 'note', label: '備考', prov: true },
+];
+const STATUS = { todo: '未確認', ok: '確認済', na: '対象外' };
+// Incident form = Field Survey template field names (the converter maps them 1:1).
+const CASE_FIELDS = [
+  { k: '案件識別番号', t: 'text', g: '基本', un: true },
+  { k: '発生日時', t: 'datetime', g: '基本', req: true },
+  { k: '件名', t: 'text', g: '基本', req: true },
+  { k: '発生区分', t: 'select', g: '基本', opt: ['故障', '事故', '苦情', 'その他'] },
+  { k: '職種', t: 'select', g: '基本', opt: ['設備', '建築', '消防・防災', '電気', 'その他'] },
+  { k: '対象区分', t: 'select', g: '基本', opt: ['', '設備室', '共用部', 'テナント専有部', '外構・通路', 'その他'], un: true },
+  { k: '発生場所', t: 'text', g: '基本', req: true },
+  { k: '案件類型', t: 'select', g: '基本', opt: ['漏水', '床・会所蓋破損', '電気設備焼損', '空調不冷', 'その他'] },
+  { k: '発見者・報告者', t: 'text', g: '基本' },
+  { k: '現場確認を実施', t: 'bool', g: '現場対応' },
+  { k: '現場確認開始', t: 'time', g: '現場対応' },
+  { k: '現場確認終了', t: 'time', g: '現場対応' },
+  { k: '一次対応を実施', t: 'bool', g: '現場対応' },
+  { k: '一次対応開始', t: 'time', g: '現場対応' },
+  { k: '一次対応終了', t: 'time', g: '現場対応' },
+  { k: '状況概要', t: 'area', g: '内容', req: true, tip: '最初に確認した事実だけ。推測は「原因・考察」へ。' },
+  { k: '影響範囲', t: 'area', g: '内容', tip: 'テナント営業、給排水、転倒・人身など。影響なしでも記録。' },
+  { k: '原因・考察', t: 'area', g: '内容', tip: '確定と推定を分けて書く。' },
+  { k: '応急処置', t: 'area', g: '内容' },
+  { k: '恒久対策・今後の予定', t: 'area', g: '内容' },
+  { k: 'オーナー・テナント報告', t: 'area', g: '報告・連絡', un: true },
+  { k: '対応業者への連絡', t: 'area', g: '報告・連絡', un: true },
+  { k: '社内報告', t: 'area', g: '報告・連絡', un: true },
+  { k: '報告先・提出状況', t: 'area', g: '報告・連絡', un: true },
+  { k: '復旧・完了状況', t: 'select', g: '報告・連絡', opt: ['調査中', '応急処置中', '恒久修繕待ち', '復旧済み', '経過観察中', 'その他'], un: true },
+];
+
+/* ---------- small helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = (n, w = 2) => String(n).padStart(w, '0');
+const ymd = (d = new Date()) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+const localInput = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+function tzSuffix(d = new Date()) { const o = -d.getTimezoneOffset(), a = Math.abs(o); return `${o >= 0 ? '+' : '-'}${pad(a / 60 | 0)}:${pad(a % 60)}`; }
+const withTz = v => v ? (v.length === 16 ? v + ':00' : v) + tzSuffix(new Date(v)) : null;
+const nowIso = () => withTz(localInput());
+function fmt(v) { if (!v) return ''; const d = new Date(v); if (isNaN(d)) return String(v); return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+const rid = p => p + '-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 2400); }
+function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000); }
+async function sha256(u8) { if (!(window.crypto && crypto.subtle)) return null; const h = await crypto.subtle.digest('SHA-256', u8); return [...new Uint8Array(h)].map(b => b.toString(16).padStart(2, '0')).join(''); }
+function ask(title, body, ok = '実行する', danger = false) {
+  return new Promise(res => {
+    const d = $('#modal');
+    d.innerHTML = `<form method="dialog" style="display:grid;gap:14px"><h2 style="font-size:20px">${esc(title)}</h2><div>${body}</div>
+      <div class="row" style="justify-content:flex-end"><button class="btn ghost" value="no">やめる</button><button class="btn ${danger ? 'red' : 'primary'}" value="yes">${esc(ok)}</button></div></form>`;
+    d.onclose = () => res(d.returnValue === 'yes');
+    d.showModal();
+  });
+}
+
+/* ---------- IndexedDB ---------- */
+let dbp;
+function db() {
+  if (!dbp) dbp = new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, DB_VERSION);
+    r.onupgradeneeded = () => {
+      const d = r.result;
+      d.createObjectStore('equipment', { keyPath: 'id' });
+      const p = d.createObjectStore('photos', { keyPath: 'id' });
+      p.createIndex('equipmentId', 'equipmentId'); p.createIndex('caseId', 'caseId');
+      d.createObjectStore('cases', { keyPath: 'id' });
+      d.createObjectStore('records', { keyPath: 'id' }).createIndex('equipmentId', 'equipmentId');
+      d.createObjectStore('meta', { keyPath: 'key' });
+    };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+  return dbp;
+}
+const req = r => new Promise((res, rej) => { r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+async function os(name, mode = 'readonly') { return (await db()).transaction(name, mode).objectStore(name); }
+const get = async (n, k) => k == null ? undefined : req((await os(n)).get(k));
+const all = async n => req((await os(n)).getAll());
+const put = async (n, v) => req((await os(n, 'readwrite')).put(v));
+const del = async (n, k) => req((await os(n, 'readwrite')).delete(k));
+const byIndex = async (n, i, v) => req((await os(n)).index(i).getAll(v));
+let lock = Promise.resolve();
+function serial(fn) { const p = lock.then(fn, fn); lock = p.catch(() => { }); return p; }
+const counter = key => serial(async () => { const m = (await get('meta', key)) || { key, v: 0 }; m.v++; await put('meta', m); return m.v; });
+
+/* ---------- ZIP (stored, UTF-8 names) — no external library ---------- */
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+async function makeZip(entries) {
+  const enc = new TextEncoder(), parts = [], central = []; let offset = 0;
+  const d = new Date(), time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  for (const e of entries) {
+    let data = e.data;
+    if (typeof data === 'string') data = enc.encode(data);
+    else if (data instanceof Blob) data = new Uint8Array(await data.arrayBuffer());
+    const name = enc.encode(e.name), crc = crc32(data);
+    const lh = new DataView(new ArrayBuffer(30));
+    [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [8, 0, 2], [10, time, 2], [12, date, 2], [14, crc, 4], [18, data.length, 4], [22, data.length, 4], [26, name.length, 2], [28, 0, 2]]
+      .forEach(([o, v, s]) => s === 4 ? lh.setUint32(o, v, true) : lh.setUint16(o, v, true));
+    parts.push(lh.buffer, name, data);
+    const ch = new DataView(new ArrayBuffer(46));
+    [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x0800, 2], [10, 0, 2], [12, time, 2], [14, date, 2], [16, crc, 4], [20, data.length, 4], [24, data.length, 4], [28, name.length, 2], [30, 0, 2], [32, 0, 2], [34, 0, 2], [36, 0, 2], [38, 0, 4], [42, offset, 4]]
+      .forEach(([o, v, s]) => s === 4 ? ch.setUint32(o, v, true) : ch.setUint16(o, v, true));
+    central.push(ch.buffer, name);
+    offset += 30 + name.length + data.length;
+  }
+  const size = central.reduce((s, b) => s + b.byteLength, 0), end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, entries.length, true); end.setUint16(10, entries.length, true); end.setUint32(12, size, true); end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, end.buffer], { type: 'application/zip' });
+}
+async function readZip(blob) {
+  const buf = new Uint8Array(await blob.arrayBuffer()), dv = new DataView(buf.buffer), dec = new TextDecoder(), out = new Map();
+  let e = buf.length - 22; while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
+  if (e < 0) throw new Error('ZIPファイルではありません');
+  let p = dv.getUint32(e + 16, true); const n = dv.getUint16(e + 10, true);
+  for (let i = 0; i < n; i++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) throw new Error('ZIPが壊れています');
+    const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lho = dv.getUint32(p + 42, true);
+    const name = dec.decode(buf.subarray(p + 46, p + 46 + nl));
+    const start = lho + 30 + dv.getUint16(lho + 26, true) + dv.getUint16(lho + 28, true), raw = buf.subarray(start, start + csize);
+    let data;
+    if (method === 0) data = raw;
+    else if (method === 8 && 'DecompressionStream' in window) data = new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+    else throw new Error('対応していない圧縮形式です');
+    out.set(name, data);
+    p += 46 + nl + xl + cl;
+  }
+  return out;
+}
+
+/* ---------- CSV ---------- */
+function parseCSV(text) {
+  const rows = []; let row = [], f = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true; else if (c === ',') { row.push(f); f = ''; }
+    else if (c === '\n') { row.push(f); rows.push(row); row = []; f = ''; } else if (c !== '\r') f += c;
+  }
+  if (f !== '' || row.length) { row.push(f); rows.push(row); }
+  return rows.filter(r => r.some(x => x.trim() !== ''));
+}
+// Prevent spreadsheet formula injection when the CSV is opened in Excel.
+const csvCell = v => { v = String(v ?? ''); if (/^[=+\-@\t\r]/.test(v)) v = "'" + v; return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+function decodeText(buf) { try { return new TextDecoder('utf-8', { fatal: true }).decode(buf).replace(/^﻿/, ''); } catch (_) { return new TextDecoder('shift_jis').decode(buf); } }
+
+/* ---------- domain ---------- */
+const emptyFields = () => Object.fromEntries(FIELDS.map(f => [f.key, { v: '', st: 'todo', src: '' }]));
+const confirmed = eq => FIELDS.filter(f => eq.fields?.[f.key]?.st === 'ok').length;
+const eqLocation = eq => eq?.fields?.location?.v || eq?.area || '';
+async function newEquipment(data, keepId) {
+  // keepId: an ID from the company ledger (EQ-000123). IDs never change once given.
+  let id;
+  if (keepId && /^EQ-\d{6}$/.test(keepId) && !(await get('equipment', keepId))) {
+    id = keepId;
+    await serial(async () => { const m = (await get('meta', 'eq')) || { key: 'eq', v: 0 }; m.v = Math.max(m.v, +keepId.slice(3)); await put('meta', m); });
+  } else id = 'EQ-' + pad(await counter('eq'), 6);
+  const eq = { id, name: data.name, category: data.category || 'その他', area: data.area || '', qr: data.qr || '', fields: emptyFields(), createdAt: nowIso(), updatedAt: nowIso() };
+  await put('equipment', eq); return eq;
+}
+async function savePhoto(file, eq, kind, caseId) {
+  const prefix = caseId || 'PH' + ymd();
+  const seq = await counter(`seq:${prefix}:${eq.id}`);
+  const ext = /png/.test(file.type) ? 'png' : /webp/.test(file.type) ? 'webp' : 'jpg';
+  const data = new Uint8Array(await file.arrayBuffer());
+  const photo = {
+    id: rid('PH'), equipmentId: eq.id, caseId: caseId || null, kind, seq,
+    name: `${prefix}_${eq.id}_${pad(seq, 3)}_${kind}.${ext}`, originalName: file.name || '',
+    takenAt: nowIso(), type: file.type || 'image/jpeg', size: data.length, sha256: await sha256(data),
+    blob: new Blob([data], { type: file.type || 'image/jpeg' }), thumb: await thumbnail(file),
+    caption: '', place: eqLocation(eq), mark: '',
+  };
+  await put('photos', photo);
+  return photo;
+}
+async function thumbnail(file) {
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    const s = Math.min(1, 360 / Math.max(bmp.width, bmp.height)), c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * s); c.height = Math.round(bmp.height * s);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', .72);
+  } catch (_) { return ''; }
+}
+async function newCase(eqId) {
+  const day = ymd(), n = await counter('case:' + day), eq = await get('equipment', eqId);
+  const data = Object.fromEntries(CASE_FIELDS.map(f => [f.k, f.t === 'bool' ? false : f.t === 'select' ? f.opt[f.opt[0] === '' ? 0 : (f.k === '案件類型' ? f.opt.length - 1 : 0)] : '']));
+  data['発生日時'] = localInput();
+  data['発生場所'] = eqLocation(eq);
+  if (eq) data['件名'] = eq.name + ' ';
+  const c = { id: `CASE-${day}-${pad(n, 4)}`, equipmentId: eq?.id || null, data, selected: [], timeline: [], createdAt: nowIso(), updatedAt: nowIso(), exportedAt: null };
+  await put('cases', c); return c;
+}
+function caseProblems(c, photos) {
+  const p = [];
+  CASE_FIELDS.filter(f => f.req).forEach(f => { if (!String(c.data[f.k] || '').trim()) p.push(`「${f.k}」が空です`); });
+  if (c.selected.length > MAX_REPORT_PHOTOS) p.push(`報告書の写真は${MAX_REPORT_PHOTOS}枚までです（今は${c.selected.length}枚）`);
+  c.selected.forEach((id, i) => { const ph = photos.find(x => x.id === id); if (!ph) p.push(`写真${i + 1}が見つかりません`); else if (!ph.caption.trim()) p.push(`写真${i + 1}（${ph.kind}）の説明文が空です`); });
+  const hashes = c.selected.map(id => photos.find(x => x.id === id)?.sha256).filter(Boolean);
+  if (new Set(hashes).size !== hashes.length) p.push('まったく同じ画像が2枚以上選ばれています（変換ツールが停止します）');
+  if (c.timeline.length > MAX_TIMELINE) p.push(`対応経過は${MAX_TIMELINE}件までです`);
+  c.timeline.forEach((t, i) => { if (!String(t['実施内容・確認結果'] || '').trim()) p.push(`対応経過${i + 1}の「実施内容・確認結果」が空です`); });
+  return p;
+}
+async function buildPackage(c) {
+  const eq = await get('equipment', c.equipmentId), photos = [], files = [];
+  for (const [i, pid] of c.selected.entries()) {
+    const ph = await get('photos', pid);
+    const data = new Uint8Array(await ph.blob.arrayBuffer()), member = 'photos/' + ph.name;
+    files.push({ name: member, data });
+    photos.push({ ID: ph.id, '写真番号': i + 1, '撮影日時': ph.takenAt, '撮影場所': ph.place || null, '元写真': member,
+      '写真右側の説明文': ph.caption, '注釈・マーキングの指示': ph.mark || null, '種別': ph.kind, sha256: ph.sha256 || await sha256(data) });
+  }
+  const kase = { ID: c.id, '設備ID': c.equipmentId || null };
+  for (const f of CASE_FIELDS) {
+    let v = c.data[f.k];
+    if (f.t === 'datetime') v = withTz(v); else if (f.t === 'bool') v = !!v; else if (v === '') v = null;
+    kase[f.k] = v ?? null;
+  }
+  const timeline = c.timeline.map(t => ({ ID: t.ID, '対応日時': withTz(t['対応日時']), '担当': t['担当'] || null, '実施内容・確認結果': t['実施内容・確認結果'],
+    '測定数値など': t['測定数値など'] || null, '連絡先・連絡結果': t['連絡先・連絡結果'] || null }));
+  const pkg = { schema: PKG_SCHEMA, created_at: nowIso(), app: { name: 'HomeBox', version: APP_VERSION }, case: kase,
+    equipment: eq ? { id: eq.id, name: eq.name, category: eq.category, location: eqLocation(eq) } : {}, photos, timeline };
+  return makeZip([{ name: 'package.json', data: JSON.stringify(pkg, null, 2) }, ...files]);
+}
+
+/* ---------- rendering helpers ---------- */
+const V = () => $('#view');
+const statusBadge = st => `<span class="badge ${st}">${STATUS[st] || STATUS.todo}</span>`;
+function eqItem(eq) {
+  const c = confirmed(eq);
+  return `<a class="item" href="#eq/${esc(eq.id)}"><div class="grow"><div class="t">${esc(eq.name)}</div>
+    <div class="s">${esc(eq.id)}・${esc(eq.category)}${eq.area ? '・' + esc(eq.area) : ''}</div>
+    <div class="row small" style="margin-top:4px"><div class="meter grow" style="max-width:140px"><i style="width:${c / FIELDS.length * 100}%"></i></div><span class="muted">確認済 ${c}/${FIELDS.length}</span></div></div>
+    <span class="arrow">›</span></a>`;
+}
+function photoCard(ph, extra = '') {
+  return `<figure class="ph" style="margin:0" data-ph="${esc(ph.id)}">${ph.thumb ? `<img src="${esc(ph.thumb)}" alt="${esc(ph.kind)}の写真">` : '<div class="muted small">画像</div>'}
+    <span class="badge">${esc(ph.kind)}</span><span class="n">${esc(ph.name)}</span>${extra}</figure>`;
+}
+function emptyBox(text) { return `<div class="empty"><svg aria-hidden="true"><use href="#hako"/></svg><p>${text}</p></div>`; }
+function setTab(h) {
+  const t = (h.match(/^#?([a-z]+)/) || [, 'home'])[1], key = { case: 'cases' }[t] || t;
+  $$('.tabs a').forEach(a => a.dataset.tab === key ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
+}
+function matches(eq, q) {
+  if (!q) return true;
+  const hay = [eq.id, eq.name, eq.category, eq.area, eq.qr, ...FIELDS.map(f => eq.fields?.[f.key]?.v)].join(' ').toLowerCase();
+  return q.toLowerCase().split(/\s+/).every(w => hay.includes(w));
+}
+
+/* ---------- views ---------- */
+async function viewHome() {
+  const [eqs, photos, cases] = await Promise.all([all('equipment'), all('photos'), all('cases')]);
+  const open = cases.filter(c => c.data['復旧・完了状況'] !== '復旧済み');
+  const recent = photos.sort((a, b) => b.takenAt.localeCompare(a.takenAt)).slice(0, 6);
+  V().innerHTML = `
+    <section class="card">
+      <p class="eyebrow">EQUIPMENT BOX</p>
+      <h1 style="font-size:24px">設備をさがす</h1>
+      <input type="search" id="q" placeholder="設備名・機器番号・型式・場所" aria-label="設備をさがす" autocomplete="off">
+      <div class="list" id="hits"></div>
+      <div class="row">
+        <a class="btn primary" href="#shoot">設備を選んで撮る</a>
+        <a class="btn" href="#eq-new">設備を追加</a>
+        <button class="btn" id="mkcase">異常案件を作る</button>
+      </div>
+    </section>
+    <section class="card flat"><div class="kv"><dt>設備</dt><dd>${eqs.length} 台</dd><dt>写真</dt><dd>${photos.length} 枚</dd><dt>対応中の案件</dt><dd>${open.length} 件</dd></div></section>
+    <section class="card"><div class="sec-title"><h2 style="font-size:18px">最近の写真</h2><a href="#shoot" class="btn small">撮る</a></div>
+      ${recent.length ? `<div class="photos">${recent.map(p => `<a href="#eq/${esc(p.equipmentId)}" style="text-decoration:none;color:inherit">${photoCard(p)}</a>`).join('')}</div>` : emptyBox('まだ写真はありません。下の赤いボタンから撮影できます。')}
+    </section>
+    <section class="card"><div class="sec-title"><h2 style="font-size:18px">対応中の異常案件</h2><a href="#cases" class="btn small">一覧</a></div>
+      ${open.length ? `<div class="list">${open.slice(0, 5).map(caseItem).join('')}</div>` : emptyBox('対応中の案件はありません。')}
+    </section>`;
+  const draw = () => { const q = $('#q').value.trim(); $('#hits').innerHTML = q ? (eqs.filter(e => matches(e, q)).slice(0, 8).map(eqItem).join('') || '<p class="muted">見つかりません</p>') : ''; };
+  $('#q').addEventListener('input', draw);
+  $('#mkcase').onclick = async () => { const c = await newCase(null); location.hash = '#case/' + c.id; };
+  if (!eqs.length) $('#hits').innerHTML = emptyBox('設備がまだありません。「設備を追加」か、設定の「台帳CSVを取り込む」から始めてください。');
+}
+function caseItem(c) {
+  const st = c.data['復旧・完了状況'] || '';
+  return `<a class="item" href="#case/${esc(c.id)}"><div class="grow"><div class="t">${esc(c.data['件名'] || '（件名なし）')}</div>
+    <div class="s">${esc(c.id)}・${esc(fmt(c.data['発生日時']))}${c.equipmentId ? '・' + esc(c.equipmentId) : ''}</div>
+    <div class="row" style="gap:6px;margin-top:4px"><span class="badge">${esc(st)}</span>${c.exportedAt ? '<span class="badge ok">書き出し済</span>' : ''}</div></div><span class="arrow">›</span></a>`;
+}
+async function viewEqList() {
+  const eqs = (await all('equipment')).sort((a, b) => a.id.localeCompare(b.id));
+  V().innerHTML = `<section class="card"><div class="sec-title"><h1 style="font-size:22px">設備台帳</h1><a class="btn small primary" href="#eq-new">＋ 追加</a></div>
+    <input type="search" id="q" placeholder="さがす（名前・番号・場所・型式）" aria-label="設備をさがす" autocomplete="off">
+    <div class="chips" id="cats"><input type="radio" name="cat" id="cat-all" value="" checked><label for="cat-all">すべて</label>
+    ${CATEGORIES.map((c, i) => `<input type="radio" name="cat" id="cat-${i}" value="${esc(c)}"><label for="cat-${i}">${esc(c)}</label>`).join('')}</div></section>
+    <div id="groups" class="list"></div>`;
+  const draw = () => {
+    const q = $('#q').value.trim(), cat = $('input[name=cat]:checked').value;
+    const hit = eqs.filter(e => matches(e, q) && (!cat || e.category === cat));
+    const groups = {}; hit.forEach(e => (groups[e.area || '場所未設定'] ||= []).push(e));
+    $('#groups').innerHTML = hit.length ? Object.entries(groups).map(([g, list]) => `<section class="card flat"><h2 style="font-size:16px">${esc(g)} <span class="muted">${list.length}台</span></h2><div class="list">${list.map(eqItem).join('')}</div></section>`).join('')
+      : emptyBox(eqs.length ? '条件に合う設備がありません。' : '設備がまだありません。「＋ 追加」か、設定から台帳CSVを取り込んでください。');
+  };
+  $('#q').addEventListener('input', draw); $('#cats').addEventListener('change', draw); draw();
+}
+async function viewEqForm(id) {
+  const eq = id ? await get('equipment', id) : null;
+  const areas = [...new Set((await all('equipment')).map(e => e.area).filter(Boolean))];
+  V().innerHTML = `<section class="card"><h1 style="font-size:22px">${eq ? '設備の基本情報を変更' : '設備を追加'}</h1>
+    <form id="f" class="grid2">
+      <label class="field">設備名 <span class="req">必須</span><input type="text" id="f-name" required value="${esc(eq?.name)}" placeholder="例：熱源水ポンプ"></label>
+      <label class="field">分類<select id="f-cat">${CATEGORIES.map(c => `<option ${eq?.category === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
+      <label class="field">場所の区分 <span class="note">建物・エリア（一覧のまとまりになります）</span><input type="text" id="f-area" list="areas" value="${esc(eq?.area)}" placeholder="例：名店街 / 機械室"></label>
+      <label class="field">QRの内容 <span class="note">任意。貼っていなければ空のまま</span><input type="text" id="f-qr" value="${esc(eq?.qr)}"></label>
+      <datalist id="areas">${areas.map(a => `<option value="${esc(a)}">`).join('')}</datalist>
+      <div class="row"><button class="btn primary" type="submit">${eq ? '保存する' : '追加する'}</button><a class="btn ghost" href="${eq ? '#eq/' + esc(eq.id) : '#eq'}">戻る</a></div>
+    </form>${eq ? '' : '<p class="muted">設備IDは自動で振られ、あとから変わりません（EQ-000001 など）。名前や場所はいつでも変えられます。</p>'}</section>`;
+  $('#f').onsubmit = async e => {
+    e.preventDefault();
+    const data = { name: $('#f-name').value.trim(), category: $('#f-cat').value, area: $('#f-area').value.trim(), qr: $('#f-qr').value.trim() };
+    if (!data.name) return toast('設備名を入れてください');
+    if (eq) { Object.assign(eq, data, { updatedAt: nowIso() }); await put('equipment', eq); location.hash = '#eq/' + eq.id; }
+    else { const n = await newEquipment(data); toast(n.id + ' を追加しました'); location.hash = '#eq/' + n.id; }
+  };
+}
+async function viewEq(id) {
+  const eq = await get('equipment', id);
+  if (!eq) { V().innerHTML = emptyBox('設備が見つかりません。'); return; }
+  const [photos, records, cases] = await Promise.all([byIndex('photos', 'equipmentId', id), byIndex('records', 'equipmentId', id), all('cases')]);
+  photos.sort((a, b) => b.takenAt.localeCompare(a.takenAt)); records.sort((a, b) => b.at.localeCompare(a.at));
+  const myCases = cases.filter(c => c.equipmentId === id);
+  V().innerHTML = `
+  <section class="card">
+    <p class="eyebrow">${esc(eq.id)}</p>
+    <h1 style="font-size:24px">${esc(eq.name)}</h1>
+    <div class="row" style="gap:6px"><span class="badge">${esc(eq.category)}</span>${eq.area ? `<span class="badge">${esc(eq.area)}</span>` : ''}${eq.qr ? '<span class="badge">QRあり</span>' : ''}<span class="badge ok">確認済 ${confirmed(eq)}/${FIELDS.length}</span></div>
+    <div class="row"><a class="btn primary" href="#shoot/${esc(eq.id)}">撮影する</a><button class="btn" id="mkcase">異常案件を作る</button><button class="btn" id="mkrec">点検を記録</button><a class="btn ghost" href="#eq-edit/${esc(eq.id)}">基本情報</a></div>
+  </section>
+  <section class="card">
+    <div class="sec-title"><h2 style="font-size:18px">設備台帳（${FIELDS.length}項目）</h2><button class="btn small primary" id="saveL">台帳を保存</button></div>
+    <p class="muted small">値ごとに「確認済／未確認／対象外」と、どこで確かめたか（銘板写真、図面など）を残せます。<span class="badge prov">仮</span>は正式テンプレートで確定する項目です。</p>
+    <div class="ledger-wrap"><table class="ledger"><tbody>
+    ${FIELDS.map((f, i) => { const v = eq.fields[f.key] || { v: '', st: 'todo', src: '' }; return `<tr><th scope="row"><label for="lv-${i}">${esc(f.label)}</label>${f.prov ? ' <span class="badge prov">仮</span>' : ''}${f.unit ? `<div class="muted small">単位 ${esc(f.unit)}</div>` : ''}</th>
+      <td><div class="cell"><input type="text" id="lv-${i}" value="${esc(v.v)}">
+      <div class="row"><select id="ls-${i}" aria-label="${esc(f.label)}の確認状況">${Object.entries(STATUS).map(([k, l]) => `<option value="${k}" ${v.st === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <input type="text" id="lc-${i}" style="width:auto;min-width:0;flex:1 1 7em" value="${esc(v.src)}" placeholder="出典（例：銘板写真）" aria-label="${esc(f.label)}の出典"></div></div></td></tr>`; }).join('')}
+    </tbody></table></div>
+  </section>
+  <section class="card"><div class="sec-title"><h2 style="font-size:18px">写真 ${photos.length}枚</h2><a class="btn small" href="#shoot/${esc(eq.id)}">撮る</a></div>
+    ${photos.length ? `<div class="photos">${photos.map(p => photoCard(p, `<span class="muted small">${esc(fmt(p.takenAt))}</span><button class="btn small ghost" data-open="${esc(p.id)}">開く</button>`)).join('')}</div>` : emptyBox('この設備の写真はまだありません。')}
+  </section>
+  <section class="card"><div class="sec-title"><h2 style="font-size:18px">点検・測定の記録</h2></div>
+    ${records.length ? `<div class="list">${records.map(r => `<div class="item" style="display:grid;gap:4px"><div class="row"><b>${esc(fmt(r.at))}</b><span class="badge ${r.result === '異常なし' ? 'ok' : 'stamp'}">${esc(r.result)}</span></div>
+      ${r.readings.length ? `<div class="small">${r.readings.map(x => `${esc(x.name)}：${esc(x.value)} ${esc(x.unit)}`).join('／')}</div>` : ''}${r.note ? `<div class="small muted">${esc(r.note)}</div>` : ''}</div>`).join('')}</div>` : emptyBox('点検の記録はまだありません。')}
+  </section>
+  <section class="card"><h2 style="font-size:18px">この設備の異常案件</h2>${myCases.length ? `<div class="list">${myCases.map(caseItem).join('')}</div>` : emptyBox('この設備の異常案件はありません。')}</section>`;
+  $('#saveL').onclick = async () => {
+    FIELDS.forEach((f, i) => { eq.fields[f.key] = { v: $('#lv-' + i).value.trim(), st: $('#ls-' + i).value, src: $('#lc-' + i).value.trim() }; });
+    eq.updatedAt = nowIso(); await put('equipment', eq); toast('台帳を保存しました'); viewEq(id);
+  };
+  $('#mkcase').onclick = async () => { const c = await newCase(id); location.hash = '#case/' + c.id; };
+  $('#mkrec').onclick = () => recordDialog(eq);
+  $$('[data-open]').forEach(b => b.onclick = () => openPhoto(b.dataset.open));
+}
+async function openPhoto(pid) {
+  const p = await get('photos', pid), url = URL.createObjectURL(p.blob), d = $('#modal');
+  d.innerHTML = `<form method="dialog" style="display:grid;gap:10px"><img src="${url}" alt="${esc(p.kind)}の写真" style="max-width:100%;border-radius:12px">
+    <span class="mono">${esc(p.name)}</span><dl class="kv"><dt>撮影</dt><dd>${esc(fmt(p.takenAt))}</dd><dt>大きさ</dt><dd>${(p.size / 1024).toFixed(0)} KB</dd><dt>SHA-256</dt><dd class="mono">${esc((p.sha256 || '—').slice(0, 16))}…</dd></dl>
+    <div class="row" style="justify-content:flex-end"><button class="btn red small" value="delete">削除</button><button class="btn primary" value="close">閉じる</button></div></form>`;
+  d.onclose = async () => {
+    URL.revokeObjectURL(url);
+    if (d.returnValue === 'delete' && await ask('写真を削除しますか？', `<p>${esc(p.name)}</p><p class="muted">元に戻せません。報告書に選ばれている場合は選択からも外れます。</p>`, '削除する', true)) {
+      await del('photos', pid);
+      for (const c of await all('cases')) if (c.selected.includes(pid)) { c.selected = c.selected.filter(x => x !== pid); await put('cases', c); }
+      toast('削除しました'); route();
+    }
+  };
+  d.showModal();
+}
+function recordDialog(eq) {
+  const d = $('#modal');
+  d.innerHTML = `<form method="dialog" id="rf" style="display:grid;gap:12px"><h2 style="font-size:20px">点検を記録：${esc(eq.name)}</h2>
+    <label class="field">日時<input type="datetime-local" id="r-at" value="${localInput()}"></label>
+    <div class="chips" role="radiogroup" aria-label="結果">${['異常なし', '要観察', '異常あり'].map((r, i) => `<input type="radio" name="r-res" id="rr-${i}" value="${r}" ${i ? '' : 'checked'}><label for="rr-${i}">${r}</label>`).join('')}</div>
+    <div id="r-reads" style="display:grid;gap:8px"></div><button type="button" class="btn small ghost" id="r-add">＋ 測定値を追加</button>
+    <label class="field">メモ<textarea id="r-note"></textarea></label>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" value="no">やめる</button><button class="btn primary" value="yes">記録する</button></div></form>`;
+  const add = () => { const k = $('#r-reads').children.length; $('#r-reads').insertAdjacentHTML('beforeend', `<div class="row"><input type="text" placeholder="項目（例：運転電流）" aria-label="測定項目${k + 1}" class="grow" style="width:auto"><input type="text" placeholder="値" aria-label="値${k + 1}" style="width:90px"><input type="text" placeholder="単位" aria-label="単位${k + 1}" style="width:70px"></div>`); };
+  add(); $('#r-add').onclick = add;
+  d.onclose = async () => {
+    if (d.returnValue !== 'yes') return;
+    const readings = $$('#r-reads .row').map(r => { const [n, v, u] = $$('input', r).map(i => i.value.trim()); return { name: n, value: v, unit: u }; }).filter(x => x.name || x.value);
+    await put('records', { id: rid('REC'), equipmentId: eq.id, type: '点検', at: withTz($('#r-at').value), result: $('input[name=r-res]:checked').value, readings, note: $('#r-note').value.trim() });
+    toast('点検を記録しました'); viewEq(eq.id);
+  };
+  d.showModal();
+}
+async function viewShoot(param) {
+  const [eqId, caseId] = (param || '').split('/');
+  const eqs = (await all('equipment')).sort((a, b) => a.id.localeCompare(b.id));
+  const kase = caseId ? await get('cases', caseId) : null;
+  if (!eqs.length) { V().innerHTML = `<section class="card">${emptyBox('先に設備を登録してください。写真は必ず設備に結び付けて保存します。')}<a class="btn primary" href="#eq-new">設備を追加</a></section>`; return; }
+  V().innerHTML = `<section class="card"><p class="eyebrow">SHOOT</p><h1 style="font-size:22px">えらぶ → とる</h1>
+    ${kase ? `<p class="badge stamp" style="justify-self:start">案件 ${esc(kase.id)} の写真として保存</p>` : ''}
+    <label class="field" for="sq">① 設備をえらぶ</label><input type="search" id="sq" placeholder="さがす" aria-label="設備をさがす">
+    <div class="list" id="eqpick" role="radiogroup" aria-label="設備" style="max-height:260px;overflow:auto"></div>
+    <span class="field">② 写真の種別</span>
+    <div class="chips" id="kinds" role="radiogroup" aria-label="写真の種別">${KINDS.map((k, i) => `<input type="radio" name="kind" id="k-${i}" value="${k}" ${i ? '' : 'checked'}><label for="k-${i}">${k}</label>`).join('')}</div>
+    <div class="row"><label class="shutter" for="cam" role="button" tabindex="0">③ 撮る</label>
+    <p class="muted grow small">撮った写真は元のまま保存し、名前は規則で付けます：<br><span class="mono" id="preview"></span></p></div>
+    <input type="file" id="cam" accept="image/*" capture="environment" multiple hidden>
+    </section><section class="card" id="done" hidden><h2 style="font-size:18px">保存した写真</h2><div class="photos" id="shots"></div></section>`;
+  let sel = eqId && eqs.find(e => e.id === eqId) ? eqId : (kase?.equipmentId || '');
+  const draw = () => {
+    const q = $('#sq').value.trim();
+    $('#eqpick').innerHTML = eqs.filter(e => matches(e, q)).map(e => `<label class="item" style="cursor:pointer"><input type="radio" name="eqp" value="${esc(e.id)}" ${e.id === sel ? 'checked' : ''}><div class="grow"><div class="t">${esc(e.name)}</div><div class="s">${esc(e.id)}${e.area ? '・' + esc(e.area) : ''}</div></div></label>`).join('') || '<p class="muted">見つかりません</p>';
+    prev();
+  };
+  const prev = async () => { const k = $('input[name=kind]:checked').value, prefix = caseId || 'PH' + ymd(); $('#preview').textContent = sel ? `${prefix}_${sel}_連番_${k}.jpg` : '（設備を選んでください）'; };
+  $('#sq').addEventListener('input', draw);
+  $('#eqpick').addEventListener('change', e => { sel = e.target.value; prev(); });
+  $('#kinds').addEventListener('change', prev);
+  $('.shutter').addEventListener('click', e => { if (!sel) { e.preventDefault(); toast('先に設備を選んでください'); } });
+  $('.shutter').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('.shutter').click(); } });
+  $('#cam').addEventListener('change', async e => {
+    const eq = eqs.find(x => x.id === sel), kind = $('input[name=kind]:checked').value;
+    for (const file of e.target.files) {
+      if (!/^image\//.test(file.type)) { toast('画像ではないファイルは保存しません'); continue; }
+      const ph = await savePhoto(file, eq, kind, caseId || null);
+      if (kase && kase.selected.length < MAX_REPORT_PHOTOS) { kase.selected.push(ph.id); await put('cases', kase); }
+      $('#done').hidden = false; $('#shots').insertAdjacentHTML('afterbegin', photoCard(ph));
+      if (!/jpe?g|png|webp/.test(file.type)) toast('この形式は報告書の変換に使えない場合があります');
+    }
+    e.target.value = '';
+    toast('保存しました');
+  });
+  draw();
+}
+async function viewCases() {
+  const cases = (await all('cases')).sort((a, b) => b.id.localeCompare(a.id));
+  V().innerHTML = `<section class="card"><div class="sec-title"><h1 style="font-size:22px">異常案件</h1><button class="btn small primary" id="mk">＋ 新しい案件</button></div>
+    <p class="muted small">入力項目は Field Survey のテンプレートと同じです。報告書パッケージを書き出し、変換ツールで会社の様式にします。</p></section>
+    ${cases.length ? `<div class="list">${cases.map(caseItem).join('')}</div>` : emptyBox('案件はまだありません。')}`;
+  $('#mk').onclick = async () => { const c = await newCase(null); location.hash = '#case/' + c.id; };
+}
+async function viewCase(id) {
+  const c = await get('cases', id);
+  if (!c) { V().innerHTML = emptyBox('案件が見つかりません。'); return; }
+  const eqs = (await all('equipment')).sort((a, b) => a.id.localeCompare(b.id));
+  const pool = (await all('photos')).filter(p => p.caseId === id || (c.equipmentId && p.equipmentId === c.equipmentId)).sort((a, b) => b.takenAt.localeCompare(a.takenAt));
+  const groups = [...new Set(CASE_FIELDS.map(f => f.g))];
+  const input = (f, i) => {
+    const v = c.data[f.k] ?? '', id_ = 'cf-' + i, note = f.un ? '<span class="note">報告書には自動転記されません（記録として残ります）</span>' : f.tip ? `<span class="note">${esc(f.tip)}</span>` : '';
+    const head = `${esc(f.k)}${f.req ? ' <span class="req">必須</span>' : ''} ${note}`;
+    if (f.t === 'bool') return `<label class="field" style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="${id_}" ${v ? 'checked' : ''} style="width:24px;height:24px">${head}</label>`;
+    if (f.t === 'select') return `<label class="field">${head}<select id="${id_}">${f.opt.map(o => `<option value="${esc(o)}" ${v === o ? 'selected' : ''}>${esc(o || '（未選択）')}</option>`).join('')}</select></label>`;
+    if (f.t === 'area') return `<label class="field" style="grid-column:1/-1">${head}<textarea id="${id_}">${esc(v)}</textarea></label>`;
+    const type = { datetime: 'datetime-local', time: 'time' }[f.t] || 'text';
+    return `<label class="field">${head}<input type="${type}" id="${id_}" value="${esc(v)}"></label>`;
+  };
+  V().innerHTML = `
+  <section class="card"><p class="eyebrow">${esc(c.id)}</p><h1 style="font-size:22px">${esc(c.data['件名'] || '新しい異常案件')}</h1>
+    <label class="field">対象の設備<select id="c-eq"><option value="">（設備を特定できない・該当なし）</option>${eqs.map(e => `<option value="${esc(e.id)}" ${c.equipmentId === e.id ? 'selected' : ''}>${esc(e.id)}　${esc(e.name)}</option>`).join('')}</select></label>
+    <p class="muted small" id="saved">入力は自動で保存されます。</p></section>
+  ${groups.map(g => `<section class="card"><h2 style="font-size:18px">${esc(g)}</h2><div class="grid2">${CASE_FIELDS.map((f, i) => f.g === g ? input(f, i) : '').join('')}</div></section>`).join('')}
+  <section class="card"><div class="sec-title"><h2 style="font-size:18px">報告書に使う写真（${MAX_REPORT_PHOTOS}枚まで）</h2>${c.equipmentId ? `<a class="btn small primary" href="#shoot/${esc(c.equipmentId)}/${esc(c.id)}">この案件で撮る</a>` : ''}</div>
+    <p class="muted small">タップで選択・解除。選んだ順に写真1・2・3になります。説明文は必須です。</p>
+    ${pool.length ? `<div class="photos" id="pool">${pool.map(p => { const o = c.selected.indexOf(p.id); return `<div class="ph ${o >= 0 ? 'sel' : ''}" data-ph="${esc(p.id)}" role="button" tabindex="0" aria-pressed="${o >= 0}">${o >= 0 ? `<span class="order">${o + 1}</span>` : ''}${p.thumb ? `<img src="${esc(p.thumb)}" alt="${esc(p.kind)}">` : ''}<span class="badge">${esc(p.kind)}</span><span class="n">${esc(p.name)}</span></div>`; }).join('')}</div>`
+      : emptyBox(c.equipmentId ? 'この設備の写真がまだありません。「この案件で撮る」から撮影してください。' : '先に対象の設備を選ぶと、その設備の写真から選べます。')}
+    <div id="captions" style="display:grid;gap:10px"></div>
+  </section>
+  <section class="card"><div class="sec-title"><h2 style="font-size:18px">対応経過（${MAX_TIMELINE}件まで）</h2><button class="btn small" id="tl-add">＋ 追加</button></div><div id="tl" style="display:grid;gap:10px"></div></section>
+  <section class="card"><h2 style="font-size:18px">報告書にする</h2>
+    <div id="probs"></div>
+    <div class="row"><button class="btn primary" id="export">報告書パッケージを書き出す</button><button class="btn red small" id="delc">案件を削除</button></div>
+    <details class="more"><summary>書き出したあとの手順</summary><ol class="small">
+      <li>ダウンロードに <span class="mono">HB-REPORT-${esc(c.id)}.zip</span> ができます。</li>
+      <li>Termux で <span class="mono">bash ~/FS_Phone_Converter_v2_4_0/run_homebox.sh</span> を実行すると、承認済みの会社様式に変換されます。</li>
+      <li>完成品は <span class="mono">Download/FS_変換結果</span> に入ります。印刷前に必ず内容を確認してください。</li></ol></details>
+    ${c.exportedAt ? `<p class="muted small">前回の書き出し：${esc(fmt(c.exportedAt))}</p>` : ''}</section>`;
+  let timer;
+  const save = async () => {
+    CASE_FIELDS.forEach((f, i) => { const el = $('#cf-' + i); c.data[f.k] = f.t === 'bool' ? el.checked : el.value; });
+    c.equipmentId = $('#c-eq').value || null; c.updatedAt = nowIso();
+    await put('cases', c); $('#saved').textContent = '保存しました ' + fmt(c.updatedAt); showProblems();
+  };
+  const later = () => { clearTimeout(timer); timer = setTimeout(save, 500); };
+  V().addEventListener('input', e => { if (e.target.closest('#captions') || e.target.closest('#tl')) return; later(); });
+  V().addEventListener('change', e => { if (e.target.id === 'c-eq') { save().then(() => viewCase(id)); } else if (!e.target.closest('#captions') && !e.target.closest('#tl')) later(); });
+  const showProblems = async () => { const photos = await all('photos'); const p = caseProblems(c, photos); $('#probs').innerHTML = p.length ? `<div class="problems"><b>書き出す前に直すところ</b><ul>${p.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '<p class="badge ok" style="justify-self:start">書き出せます</p>'; $('#export').disabled = p.length > 0; };
+  // photo selection + captions (stored on the photo itself)
+  const drawCaptions = async () => {
+    const sel = await Promise.all(c.selected.map(pid => get('photos', pid)));
+    $('#captions').innerHTML = sel.filter(Boolean).map((p, i) => `<div class="tl" data-cap="${esc(p.id)}"><b>写真${i + 1}：${esc(p.kind)} <span class="mono">${esc(p.name)}</span></b>
+      <label class="field">写真右側の説明文 <span class="req">必須</span><textarea data-k="caption">${esc(p.caption)}</textarea></label>
+      <div class="grid2"><label class="field">撮影場所<input type="text" data-k="place" value="${esc(p.place)}"></label>
+      <label class="field">注釈・マーキングの指示 <span class="note">赤丸などは手作業で</span><input type="text" data-k="mark" value="${esc(p.mark)}"></label></div></div>`).join('');
+  };
+  $('#captions').addEventListener('input', async e => {
+    const box = e.target.closest('[data-cap]'); if (!box) return;
+    const p = await get('photos', box.dataset.cap); p[e.target.dataset.k] = e.target.value; await put('photos', p); showProblems();
+  });
+  const pickEl = $('#pool');
+  if (pickEl) {
+    const toggle = async el => {
+      const pid = el.dataset.ph, at = c.selected.indexOf(pid);
+      if (at >= 0) c.selected.splice(at, 1);
+      else { if (c.selected.length >= MAX_REPORT_PHOTOS) return toast(`報告書の写真は${MAX_REPORT_PHOTOS}枚までです`); c.selected.push(pid); }
+      await put('cases', c);
+      $$('#pool .ph').forEach(x => { const o = c.selected.indexOf(x.dataset.ph); x.classList.toggle('sel', o >= 0); x.setAttribute('aria-pressed', o >= 0); x.querySelector('.order')?.remove(); if (o >= 0) x.insertAdjacentHTML('afterbegin', `<span class="order">${o + 1}</span>`); });
+      drawCaptions(); showProblems();
+    };
+    pickEl.addEventListener('click', e => { const el = e.target.closest('.ph'); if (el) toggle(el); });
+    pickEl.addEventListener('keydown', e => { const el = e.target.closest('.ph'); if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(el); } });
+  }
+  // timeline
+  const drawTl = () => {
+    $('#tl').innerHTML = c.timeline.length ? c.timeline.map((t, i) => `<div class="tl" data-tl="${i}"><div class="row"><b>経過${i + 1}</b><button class="btn small ghost" data-rm="${i}" style="margin-left:auto">削除</button></div>
+      <div class="grid2"><label class="field">対応日時<input type="datetime-local" data-k="対応日時" value="${esc(t['対応日時'])}"></label><label class="field">担当<input type="text" data-k="担当" value="${esc(t['担当'])}"></label></div>
+      <label class="field">実施内容・確認結果 <span class="req">必須</span><textarea data-k="実施内容・確認結果">${esc(t['実施内容・確認結果'])}</textarea></label>
+      <div class="grid2"><label class="field">測定数値など <span class="note">単位を付ける（例：30 A）</span><input type="text" data-k="測定数値など" value="${esc(t['測定数値など'])}"></label>
+      <label class="field">連絡先・連絡結果<input type="text" data-k="連絡先・連絡結果" value="${esc(t['連絡先・連絡結果'])}"></label></div></div>`).join('') : '<p class="muted small">まだありません。時系列で1件ずつ記録します。</p>';
+  };
+  $('#tl').addEventListener('input', e => { const box = e.target.closest('[data-tl]'); if (!box) return; c.timeline[+box.dataset.tl][e.target.dataset.k] = e.target.value; later(); });
+  $('#tl').addEventListener('click', async e => { const b = e.target.closest('[data-rm]'); if (!b) return; c.timeline.splice(+b.dataset.rm, 1); await put('cases', c); drawTl(); showProblems(); });
+  $('#tl-add').onclick = async () => { if (c.timeline.length >= MAX_TIMELINE) return toast(`対応経過は${MAX_TIMELINE}件までです`); c.timeline.push({ ID: rid('TL'), '対応日時': localInput(), '担当': '', '実施内容・確認結果': '', '測定数値など': '', '連絡先・連絡結果': '' }); await put('cases', c); drawTl(); showProblems(); };
+  $('#export').onclick = async () => {
+    await save(); const photos = await all('photos');
+    if (caseProblems(c, photos).length) return toast('直すところがあります');
+    const blob = await buildPackage(c); download(blob, `HB-REPORT-${c.id}.zip`);
+    c.exportedAt = nowIso(); await put('cases', c); toast('報告書パッケージを書き出しました');
+  };
+  $('#delc').onclick = async () => { if (await ask('案件を削除しますか？', `<p>${esc(c.id)} ${esc(c.data['件名'])}</p><p class="muted">写真は設備に残ります。案件の入力内容と対応経過は元に戻せません。</p>`, '削除する', true)) { await del('cases', c.id); toast('削除しました'); location.hash = '#cases'; } };
+  drawTl(); drawCaptions(); showProblems();
+}
+
+/* ---------- settings: backup, CSV, storage ---------- */
+async function viewSettings() {
+  let persisted = false, est = null;
+  try { persisted = await navigator.storage?.persisted?.(); est = await navigator.storage?.estimate?.(); } catch (_) { }
+  V().innerHTML = `
+  <section class="card"><h1 style="font-size:22px">設定・データ</h1>
+    <dl class="kv"><dt>保存場所</dt><dd>この端末のブラウザの中だけ（外部へは送信しません）</dd>
+    <dt>消されにくい設定</dt><dd>${persisted ? '<span class="badge ok">有効</span>' : '<span class="badge todo">未設定</span> <button class="btn small" id="persist">有効にする</button>'}</dd>
+    <dt>使用量</dt><dd>${est ? (est.usage / 1048576).toFixed(1) + ' MB' : '不明'}</dd><dt>版</dt><dd>${APP_VERSION}</dd></dl></section>
+  <section class="card"><h2 style="font-size:18px">バックアップ</h2>
+    <p class="muted small">機種変更や故障に備えて、定期的に書き出し、会社が認めた保存先に置いてください。写真は元のまま入ります。</p>
+    <div class="row"><button class="btn primary" id="bk">バックアップを書き出す</button><label class="btn" for="rs">バックアップから復元</label><input type="file" id="rs" accept=".zip,application/zip" hidden></div></section>
+  <section class="card"><h2 style="font-size:18px">設備台帳CSV</h2>
+    <p class="muted small">1行目は見出し：設備ID, 設備名, 分類, 場所の区分, QR, ${FIELDS.map(f => esc(f.label)).join(', ')}。Excelで保存したCSV（UTF-8・Shift_JIS）を読めます。取り込んだ値は「未確認」になります。</p>
+    <div class="row"><button class="btn" id="csvout">台帳CSVを書き出す</button><button class="btn" id="csvtpl">空のCSVひな形</button><label class="btn primary" for="csvin">台帳CSVを取り込む</label><input type="file" id="csvin" accept=".csv,text/csv" hidden></div></section>
+  <section class="card"><h2 style="font-size:18px">17項目の定義</h2>
+    <div class="chips">${FIELDS.map(f => `<span class="badge ${f.prov ? 'prov' : ''}">${esc(f.label)}${f.prov ? '（仮）' : ''}</span>`).join('')}</div>
+    <p class="muted small">（仮）の項目は、正式な17項目テンプレートで確定します。値は項目のキーで保存しているので、名前を変えてもデータは残ります。</p></section>
+  <section class="card"><h2 style="font-size:18px">全データを消す</h2><p class="muted small">先にバックアップを書き出してください。</p><button class="btn red" id="wipe">この端末のデータをすべて消す</button></section>`;
+  $('#persist')?.addEventListener('click', async () => { const ok = await navigator.storage.persist(); toast(ok ? '有効にしました' : 'ブラウザに許可されませんでした（ホーム画面に追加すると通りやすくなります）'); viewSettings(); });
+  $('#bk').onclick = exportBackup;
+  $('#rs').onchange = e => e.target.files[0] && restoreBackup(e.target.files[0]).finally(() => e.target.value = '');
+  $('#csvout').onclick = () => exportCSV(false);
+  $('#csvtpl').onclick = () => exportCSV(true);
+  $('#csvin').onchange = e => e.target.files[0] && importCSV(e.target.files[0]).finally(() => e.target.value = '');
+  $('#wipe').onclick = async () => { if (await ask('すべて消しますか？', '<p>設備・写真・案件・点検記録をこの端末から消します。元に戻せません。</p>', 'すべて消す', true)) { for (const s of ['equipment', 'photos', 'cases', 'records', 'meta']) await req((await os(s, 'readwrite')).clear()); toast('消しました'); location.hash = '#home'; } };
+}
+async function exportBackup() {
+  const stores = {}; for (const s of ['equipment', 'cases', 'records', 'meta']) stores[s] = await all(s);
+  const photos = await all('photos'), files = [];
+  stores.photos = photos.map(({ blob, ...rest }) => { files.push({ name: `photos/${rest.id}`, data: blob }); return rest; });
+  const zip = await makeZip([{ name: 'backup.json', data: JSON.stringify({ schema: BACKUP_SCHEMA, app_version: APP_VERSION, exported_at: nowIso(), ...stores }) }, ...files]);
+  download(zip, `HB-BACKUP-${ymd()}-${pad(new Date().getHours())}${pad(new Date().getMinutes())}.zip`);
+  toast(`バックアップを書き出しました（写真${photos.length}枚）`);
+}
+async function restoreBackup(file) {
+  let z, b;
+  try { z = await readZip(file); b = JSON.parse(new TextDecoder().decode(z.get('backup.json'))); } catch (e) { return toast('バックアップを読めません：' + e.message); }
+  if (b.schema !== BACKUP_SCHEMA) return toast('ホームボックスのバックアップではありません');
+  const missing = b.photos.filter(p => !z.has('photos/' + p.id)).length;
+  const ok = await ask('バックアップから復元しますか？', `<p>設備 ${b.equipment.length}台・写真 ${b.photos.length}枚・案件 ${b.cases.length}件・点検 ${b.records.length}件（${esc(fmt(b.exported_at))} 書き出し）</p>
+    ${missing ? `<p style="color:var(--stamp)">写真${missing}枚の画像がZIPにありません。</p>` : ''}<p class="muted">今この端末にあるデータは、すべて置き換わります。</p>`, '置き換えて復元', true);
+  if (!ok) return;
+  for (const s of ['equipment', 'photos', 'cases', 'records', 'meta']) await req((await os(s, 'readwrite')).clear());
+  for (const s of ['equipment', 'cases', 'records', 'meta']) for (const v of b[s]) await put(s, v);
+  for (const p of b.photos) { const d = z.get('photos/' + p.id); if (d) await put('photos', { ...p, blob: new Blob([d], { type: p.type }) }); }
+  toast('復元しました'); location.hash = '#home'; route();
+}
+async function exportCSV(templateOnly) {
+  const head = ['設備ID', '設備名', '分類', '場所の区分', 'QR', ...FIELDS.map(f => f.label)];
+  const rows = templateOnly ? [] : (await all('equipment')).sort((a, b) => a.id.localeCompare(b.id)).map(e => [e.id, e.name, e.category, e.area, e.qr, ...FIELDS.map(f => e.fields[f.key]?.v || '')]);
+  const text = '﻿' + [head, ...rows].map(r => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
+  download(new Blob([text], { type: 'text/csv' }), templateOnly ? 'HB-LEDGER-TEMPLATE.csv' : `HB-LEDGER-${ymd()}.csv`);
+}
+async function importCSV(file) {
+  const rows = parseCSV(decodeText(await file.arrayBuffer()));
+  if (rows.length < 2) return toast('データ行がありません');
+  const head = rows[0].map(h => h.trim()), col = n => head.indexOf(n);
+  if (col('設備名') < 0) return toast('見出しに「設備名」がありません');
+  const known = FIELDS.filter(f => col(f.label) >= 0), existing = new Map((await all('equipment')).map(e => [e.id, e]));
+  const data = rows.slice(1).map(r => ({ id: (r[col('設備ID')] || '').trim(), name: (r[col('設備名')] || '').trim(), category: (r[col('分類')] || '').trim(), area: (r[col('場所の区分')] || '').trim(), qr: (r[col('QR')] || '').trim(),
+    fields: Object.fromEntries(known.map(f => [f.key, (r[col(f.label)] || '').trim()])) })).filter(r => r.name);
+  const upd = data.filter(r => existing.has(r.id)).length;
+  const ok = await ask('台帳CSVを取り込みますか？', `<p>${data.length}台（新規 ${data.length - upd}・更新 ${upd}）。読めた項目：${known.length}/${FIELDS.length}</p><p class="muted">取り込んだ値は「未確認」になります。現物や銘板で確かめてから「確認済」にしてください。</p>`, '取り込む');
+  if (!ok) return;
+  for (const r of data) {
+    let eq = existing.get(r.id);
+    if (!eq) { eq = await newEquipment(r, r.id); }
+    Object.assign(eq, { name: r.name, category: CATEGORIES.includes(r.category) ? r.category : (r.category ? 'その他' : eq.category), area: r.area || eq.area, qr: r.qr || eq.qr, updatedAt: nowIso() });
+    for (const [k, v] of Object.entries(r.fields)) if (v) eq.fields[k] = { v, st: 'todo', src: 'CSV取り込み' };
+    await put('equipment', eq);
+  }
+  toast(`${data.length}台を取り込みました`); location.hash = '#eq';
+}
+
+/* ---------- router ---------- */
+const routes = [
+  [/^#?(home)?$/, viewHome], [/^#eq$/, viewEqList], [/^#eq-new$/, () => viewEqForm()], [/^#eq-edit\/(.+)$/, m => viewEqForm(m[1])],
+  [/^#eq\/([^/]+)$/, m => viewEq(m[1])], [/^#shoot(?:\/(.*))?$/, m => viewShoot(m[1])], [/^#cases$/, viewCases],
+  [/^#case\/(.+)$/, m => viewCase(m[1])], [/^#settings$/, viewSettings],
+];
+async function route() {
+  const h = decodeURIComponent(location.hash || '#home');
+  const v = V(); const fresh = v.cloneNode(false); v.replaceWith(fresh); // drop old listeners
+  for (const [re, fn] of routes) { const m = h.match(re); if (m) { setTab(h); try { await fn(m); } catch (e) { console.error(e); fresh.innerHTML = `<section class="card problems"><b>エラー</b><p>${esc(e.message)}</p></section>`; } scrollTo(0, 0); return; } }
+  location.hash = '#home';
+}
+addEventListener('hashchange', route);
+$('#ver').textContent = 'v' + APP_VERSION;
+route();
+if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js').catch(() => { });
+</script>
+</body>
+</html>

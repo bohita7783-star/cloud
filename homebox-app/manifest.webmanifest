@@ -1,0 +1,17 @@
+{
+  "name": "ホームボックス",
+  "short_name": "ホームボックス",
+  "description": "設備台帳・写真・点検・異常案件を設備ごとに管理し、報告書パッケージを書き出す。データは端末の中だけ。",
+  "lang": "ja",
+  "start_url": "./#home",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFF3DA",
+  "theme_color": "#F5A13A",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
