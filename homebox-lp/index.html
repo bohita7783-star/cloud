@@ -178,6 +178,7 @@ section,[id]{scroll-margin-top:84px}
   .tab svg{width:38px;height:38px}
   .tabs{bottom:-28px}
 }
+@media (max-width:360px){.tabs{gap:3px}.tab{width:42px;height:42px}.tab svg{width:32px;height:32px}}
 
 /* ---------- how (steps + demo) ---------- */
 .steps{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;margin-bottom:48px}
@@ -409,11 +410,11 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justif
   <section class="hero" aria-labelledby="hero-title">
     <div class="wrap">
       <div class="hero-copy">
-        <span class="status">開発中 v0.1 ・ 架空データで試作中</span>
+        <span class="status">紹介ページのデモ ・ アプリ本体は未完成</span>
         <p class="eyebrow">Equipment Box</p>
         <h1 id="hero-title" data-split>設備のこと、<br>ぜんぶ <span class="underline">この箱<svg viewBox="0 0 300 30" preserveAspectRatio="none" aria-hidden="true"><path d="M6 20 C60 8 120 26 180 14 S270 10 294 16"/></svg></span>に。</h1>
-        <p class="lead">台帳の17項目、撮った写真、点検と異常の記録を、設備ごとに1か所へ。現場のスマホで、圏外のまま使えます。
-          <small>記録も写真も端末の中だけで扱い、外部には送りません。</small></p>
+        <p class="lead">台帳の17項目、撮った写真、点検と異常の記録を、設備ごとに1か所へ。将来は、現場のスマホで圏外でも使えることを目指しています。
+          <small>業務データの端末内保存を基本とし、外部送信は会社の承認を前提に設計します。</small></p>
         <div class="cta-row">
           <a class="btn btn-primary burst" href="#demo">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="6" fill="none" stroke="currentColor" stroke-width="3"/><path d="M8 4h8" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
@@ -435,7 +436,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justif
 
   <div class="ticker" aria-label="主な機能">
     <div class="ticker-track" id="ticker">
-      <span>17項目の設備台帳</span><span>写真を設備に自動でしまう</span><span>日本語名でExcelへ</span><span>QRはあってもなくても</span><span>圏外でも動く</span><span>点検・異常をひとつの記録に</span>
+      <span>17項目の設備台帳</span><span>設備と写真をひもづける</span><span>日本語名でExcelへ</span><span>QRはあってもなくても</span><span>圏外対応を目指す</span><span>点検・異常をひとつの記録に</span>
     </div>
   </div>
 
@@ -468,7 +469,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justif
       <div class="sec-head" data-pop>
         <p class="eyebrow">How it works</p>
         <h2 id="how-title">えらぶ、とる、だす。</h2>
-        <p>設備が先に決まっているから、写真の取り違えが起きません。AIに設備を当てさせる必要もありません。</p>
+        <p>設備を先に選ぶことで、写真の取り違えを減らす設計です。AIに設備名を推測させず、台帳の情報を使います。</p>
       </div>
       <div class="steps" id="steps">
         <svg class="route" viewBox="0 0 600 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0 20 C100 -6 200 46 300 20 S500 -6 600 20"/><path class="mask" id="routeMask" d="M0 20 C100 -6 200 46 300 20 S500 -6 600 20"/></svg>
@@ -490,6 +491,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justif
         </div>
         <div class="panel result" data-pop style="--tilt:2deg">
           <h3><span class="n">3</span>こう、しまわれます</h3>
+          <p class="ledger-note" id="fileStatus" aria-live="polite">次のデモ写真の命名プレビュー</p>
           <div class="filename code" id="filename" aria-live="polite"></div>
           <div class="legend"><span><i style="background:var(--custard)"></i>案件ID</span><span><i style="background:var(--sky)"></i>設備ID</span><span><i style="background:var(--mint)"></i>連番</span><span><i style="background:var(--sun)"></i>種別</span></div>
           <div class="shelf" id="shelf"><p class="empty" id="shelfEmpty">まだ写真はありません。左の「撮る」を押すと、ここに並びます。</p></div>
@@ -500,6 +502,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justif
           <p class="ledger-note" id="ledgerNote">17項目のうち9項目を表示。値はすべて架空です。「確認済」「未確認」は、値ごとに確認状況を持っている例です。</p>
         </div>
       </div>
+      <p class="ledger-note" style="margin-top:20px;text-align:center">この画面は説明用のデモです。実際の撮影・端末への保存・Excel出力には接続していません。操作した履歴はページ更新で消えます。</p>
     </div>
   </section>
 
@@ -522,10 +525,10 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justif
         <p>小さく作って、現場で使える分から順に増やします。</p>
       </div>
       <div class="road">
-        <div class="ver now" data-pop><div class="dot">0.1</div><span class="tag">いまここ</span><b>台帳・撮影・書き出し</b><span>17項目、検索、写真の自動ひもづけ、バックアップ</span></div>
-        <div class="ver" data-pop style="--tilt:3deg"><div class="dot">0.2</div><b>QR・点検と異常の記録</b><span>場所の階層、記録の種別</span></div>
-        <div class="ver" data-pop><div class="dot">0.3</div><b>銘板の読み取り</b><span>読み取った候補を人が確認して登録</span></div>
-        <div class="ver" data-pop style="--tilt:3deg"><div class="dot">0.4</div><b>図面・報告書</b><span>PDFの添付、報告書の書き出し</span></div>
+        <div class="ver now" data-pop><div class="dot">準備</div><span class="tag">いまここ</span><b>Field Survey変換と共通ID</b><span>既存のExcel変換の安全性を先に改善</span></div>
+        <div class="ver" data-pop style="--tilt:3deg"><div class="dot">0.1</div><b>台帳・点検と異常履歴</b><span>17項目、設備検索、既存記録の取り込み</span></div>
+        <div class="ver" data-pop><div class="dot">0.2</div><b>撮影・写真のひもづけ</b><span>QR不要、原本保護、規則による命名</span></div>
+        <div class="ver" data-pop style="--tilt:3deg"><div class="dot">0.3</div><b>銘板OCR・PDF</b><span>認識候補を人が確認、資料の閲覧</span></div>
       </div>
 
       <div class="sec-head" id="faq" data-pop>
@@ -533,7 +536,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justif
         <h2>よくある質問</h2>
       </div>
       <div class="faq">
-        <details data-pop><summary>圏外の機械室でも使えますか？</summary><p class="ans">使えます。台帳も写真も端末の中に保存するので、電波がなくても記録できます。外部への送信もしません。</p></details>
+        <details data-pop><summary>圏外の機械室でも使えますか？</summary><p class="ans">現在はまだアプリ本体を開発していません。将来は、台帳や写真を端末内で管理し、圏外でも記録できる設計を目指します。外部通信の可否は会社の承認条件に従います。</p></details>
         <details data-pop><summary>設備にQRコードを貼らないとだめですか？</summary><p class="ans">いりません。設備は一覧と検索から選べます。QRは、会社の許可があって貼れる現場だけの追加機能です。</p></details>
         <details data-pop><summary>写真の名前はAIがつけるんですか？</summary><p class="ans">つけません。「案件ID_設備ID_連番_種別」の規則で決まるので、いつ誰が撮っても同じ形の名前になります。</p></details>
         <details data-pop><summary>会社のExcel様式は書き換わりますか？</summary><p class="ans">原本はそのまま残します。複製に写真と文章を入れて書き出し、提出前の確認は人が行います。</p></details>
@@ -562,7 +565,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justif
 <footer>
   <div class="wrap">
     <span><b style="font-family:var(--f-display);color:var(--fg)">ホームボックス</b>（仮称）は開発中の設備管理アプリです。</span>
-    <span>掲載している設備・製造者・数値はすべて架空です。</span>
+    <span>設備・製造者・数値はすべて架空です。紹介ページは外部Webフォントを読み込む場合があります。</span>
   </div>
 </footer>
 
@@ -624,17 +627,17 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justif
 
   /* ---- characters ---- */
   const CHARS = [
-    { id: 'c-hako', name: 'ハコさん', hand: 'hako-san', role: '設備台帳', disc: '--sun', stamp: 'v0.1',
+    { id: 'c-hako', name: 'ハコさん', hand: 'hako-san', role: '設備台帳', disc: '--sun', stamp: '構想中',
       list: ['17項目をおぼえている', '機器番号が空欄でも気にしない', '17項目をおぼえている', '特技は整理整頓', '17項目をおぼえている', '家（ホーム）とは関係ない'] },
-    { id: 'c-camera', name: 'カメラさん', hand: 'camera-san', role: '撮影と写真の履歴', disc: '--sky', stamp: 'v0.1',
+    { id: 'c-camera', name: 'カメラさん', hand: 'camera-san', role: '撮影と写真の履歴', disc: '--sky', stamp: '構想中',
       list: ['撮った写真をその設備にしまう', '元の写真は消さない', '撮った写真をその設備にしまう', '位置情報は持ち出さない', '撮った写真をその設備にしまう'] },
-    { id: 'c-qr', name: 'QRさん', hand: 'qr-san', role: '設備の識別', disc: '--custard', stamp: 'v0.2',
+    { id: 'c-qr', name: 'QRさん', hand: 'qr-san', role: '設備の識別', disc: '--custard', stamp: '構想中',
       list: ['設備IDしか知らない', 'いなくても困らない', '貼る前に会社に聞く', 'いなくても困らない', '交換された設備のIDは使い回さない'] },
-    { id: 'c-meter', name: 'メーターさん', hand: 'meter-san', role: '点検と異常の記録', disc: '--mint', stamp: 'v0.2',
+    { id: 'c-meter', name: 'メーターさん', hand: 'meter-san', role: '点検と異常の記録', disc: '--mint', stamp: '構想中',
       list: ['数字には単位をつける', '確認済と未確認を分けて書く', '数字には単位をつける', '点検も異常もひとつの記録にする', '数字には単位をつける'] },
-    { id: 'c-zumen', name: 'ズメンさん', hand: 'zumen-san', role: '図面と資料', disc: '--steel', stamp: 'v0.4',
+    { id: 'c-zumen', name: 'ズメンさん', hand: 'zumen-san', role: '図面と資料', disc: '--steel', stamp: '構想中',
       list: ['PDFならまかせて', 'DXFは勉強中', 'PDFならまかせて', '設備の詳細画面から開ける', '紙の図面は苦手'] },
-    { id: 'c-report', name: 'レポートさん', hand: 'report-san', role: '報告書の書き出し', disc: '--safety', stamp: 'v0.4',
+    { id: 'c-report', name: 'レポートさん', hand: 'report-san', role: '報告書の書き出し', disc: '--safety', stamp: '構想中',
       list: ['Excelの原本は書き換えない', '写真は様式の枠の数まで', 'Excelの原本は書き換えない', '最後は人が確認する', 'Excelの原本は書き換えない'] },
   ];
   const tabs = $('#tabs'), art = $('#charArt'), disc = $('#disc'), info = $('#charInfo');
@@ -690,8 +693,12 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justif
   const cur = () => ({ e: EQ[+eqPick.querySelector('input:checked').value], k: KINDS[+kindPick.querySelector('input:checked').value] });
   const pad = n => String(n).padStart(3, '0');
   function renderName() {
-    const { e, k } = cur(); const n = counts[e.id] + 1;
-    $('#filename').innerHTML = `<span class="seg s-case">${CASE}</span>_<span class="seg s-eq">${e.id}</span>_<span class="seg s-no">${pad(n)}</span>_<span class="seg s-kind">${k[0]}</span>.jpg`;
+    const { e, k } = cur();
+    const latest = shots[e.id].length ? shots[e.id][shots[e.id].length - 1] : null;
+    const n = latest ? latest.n : counts[e.id] + 1;
+    const kind = latest ? latest.kind : k[0];
+    $('#fileStatus').textContent = latest ? '最後に撮ったデモ写真のファイル名' : '次のデモ写真の命名プレビュー';
+    $('#filename').innerHTML = `<span class="seg s-case">${CASE}</span>_<span class="seg s-eq">${e.id}</span>_<span class="seg s-no">${pad(n)}</span>_<span class="seg s-kind">${kind}</span>.jpg`;
   }
   function renderEq(animate) {
     const { e } = cur();
