@@ -1,0 +1,169 @@
+{
+  "status": "TEST_DRAFT_NOT_APPROVED",
+  "version": "2.4.2-homebox-preview",
+  "project_case_id": "ID_B",
+  "project_title": "CASE_B_VISIBLE_20261107",
+  "photo_count": 1,
+  "timeline_count": 1,
+  "embedded_jpeg_quality": 80,
+  "embedded_max_long_edge": 1600,
+  "time_zone_for_aware_timestamps": "Asia/Tokyo",
+  "photos": [
+    {
+      "number": 1,
+      "file": "photoB.jpg",
+      "origin": "Field Survey写真ZIP",
+      "source_size": [
+        400,
+        300
+      ],
+      "embedded_size": [
+        120,
+        90
+      ],
+      "embedded_bytes": 422,
+      "jpeg_quality": 80,
+      "max_long_edge": 1600,
+      "sha256": "26712fdac753a69f5edde252a9efe4f281940eed8d4caaa2215d2813c3f6a2ac",
+      "caption": "PUBLIC_B_PHOTO_ABCDEF"
+    }
+  ],
+  "source_hashes_sha256": {
+    "synthetic_field_survey.xlsx": "44803a54d45d11df60a8485c1d82346e2d248d988461a0863f0b3d87b3f2d421",
+    "synthetic_photos.zip": "abee282a20e59298eca8337dfbb7d44e07f18c57ad9b40b01db995977d826971",
+    "synthetic_blank_template.xlsx": "84c1ff0d80830b6ab68bba87514739570ac11497acc281cf3c2cbd025a4a6d1e"
+  },
+  "selected_photo_row_ids": [
+    "P_B"
+  ],
+  "source_incident_total": 2,
+  "input": {
+    "kind": "field-survey-xlsx"
+  },
+  "unmapped_nonempty_fields": [],
+  "manual_checks": [
+    "Photo content vs incident, location and description (no automatic visual validation)",
+    "Incident fields, reporter identity, and previously filled company template fields",
+    "Unmapped Field Survey inputs are listed in unmapped_nonempty_fields and need manual review",
+    "All formula-derived second-page fields must be recalculated in desktop Excel",
+    "Printed layout and existing pictures, shapes, EMF; do not submit without approval"
+  ],
+  "known_limitations": [
+    "Only templates with a signed approval manifest of the 2026-10-17 layout",
+    "One chosen incident, 0-3 photos and <=8 timeline rows",
+    "No direct Field Survey annotations drawn on images",
+    "Unmapped questionnaire columns require manual review",
+    "Photo source is retained in the original photos ZIP; embedded images are downscaled"
+  ],
+  "checks": {
+    "zip_crc": "ok",
+    "photo_anchors": 1,
+    "emf_preserved": true,
+    "printer_settings_preserved": true,
+    "old_AP9_cleared": true,
+    "formula_caches_cleared": true
+  },
+  "ooxml": {
+    "changed_parts": [
+      "[Content_Types].xml",
+      "docProps/app.xml",
+      "docProps/core.xml",
+      "xl/_rels/workbook.xml.rels",
+      "xl/drawings/_rels/drawing2.xml.rels",
+      "xl/drawings/drawing2.xml",
+      "xl/media/image1.jpeg",
+      "xl/sharedStrings.xml",
+      "xl/workbook.xml",
+      "xl/worksheets/sheet1.xml",
+      "xl/worksheets/sheet2.xml"
+    ],
+    "deleted_parts": [
+      "xl/calcChain.xml",
+      "xl/media/image2.jpeg",
+      "xl/media/image3.jpeg"
+    ],
+    "cleared_formula_caches": 1,
+    "cleared_orphan_shared_strings": 7,
+    "removed_old_markings": 3,
+    "removed_unused_photo_anchors": 2,
+    "part_verification": {
+      "approval_id": "APV-20261107-9cc11e4a",
+      "immutable_parts_byte_identical": 11,
+      "modifiable_parts_checked": [
+        "[Content_Types].xml",
+        "docProps/app.xml",
+        "docProps/core.xml",
+        "xl/_rels/workbook.xml.rels",
+        "xl/drawings/_rels/drawing2.xml.rels",
+        "xl/drawings/drawing2.xml",
+        "xl/media/image1.jpeg",
+        "xl/sharedStrings.xml",
+        "xl/workbook.xml",
+        "xl/worksheets/sheet1.xml",
+        "xl/worksheets/sheet2.xml"
+      ],
+      "deleted_parts": [
+        "xl/calcChain.xml",
+        "xl/media/image2.jpeg",
+        "xl/media/image3.jpeg"
+      ],
+      "added_parts": [],
+      "changed_cells_report": 27,
+      "changed_cells_photo": 6,
+      "blanked_shared_strings": 7,
+      "photos_checked": 1,
+      "legacy_markers_checked": 10
+    }
+  },
+  "approval": {
+    "approval_id": "APV-20261107-9cc11e4a",
+    "approver": "サンプル承認者（架空）",
+    "approver_key_id": "ed25519:821f8918eb13146c",
+    "approved_at": "2026-11-07T03:40:25Z",
+    "valid_until": "2027-11-07T03:40:25Z"
+  },
+  "approval_manifest": {
+    "file": "approval_manifest.approved_sample.json",
+    "sha256": "b0c54cfff598e41e7f72d8b475663ea18855c38bb5dcce3903e3940b07c29e44",
+    "template_sha256": "84c1ff0d80830b6ab68bba87514739570ac11497acc281cf3c2cbd025a4a6d1e",
+    "trusted_keys_sha256": "a73ad975e64b282a90af4bf34ba255026b61125fb8e16336c92c8a73d818bcc6"
+  },
+  "program": {
+    "version": "2.4.2-homebox-preview",
+    "engine_policy_version": "report-2026-10-17/engine-2.3.4",
+    "file_sha256": {
+      "converter_mobile.py": "e87c7a55b84e2e8878ff79cf518523c91b9cf5cf5b62df3c5d83255eeadb6311",
+      "approval.py": "145c97e6f9743ce5cdbf26ba363872fd7b671b5cae4e1833f5fca5103c797ded",
+      "engine_policy.py": "07f63e1e534eda6590fd9f87805e8a12333899011ab9c15b9eb25c2abad8990a",
+      "case_exports.py": "5ed6b105d799afdd6b7263fb413a1ac9d76f7f886a7d6798f2fda055710d9a4c"
+    }
+  },
+  "part_verification": {
+    "approval_id": "APV-20261107-9cc11e4a",
+    "immutable_parts_byte_identical": 11,
+    "modifiable_parts_checked": [
+      "[Content_Types].xml",
+      "docProps/app.xml",
+      "docProps/core.xml",
+      "xl/_rels/workbook.xml.rels",
+      "xl/drawings/_rels/drawing2.xml.rels",
+      "xl/drawings/drawing2.xml",
+      "xl/media/image1.jpeg",
+      "xl/sharedStrings.xml",
+      "xl/workbook.xml",
+      "xl/worksheets/sheet1.xml",
+      "xl/worksheets/sheet2.xml"
+    ],
+    "deleted_parts": [
+      "xl/calcChain.xml",
+      "xl/media/image2.jpeg",
+      "xl/media/image3.jpeg"
+    ],
+    "added_parts": [],
+    "changed_cells_report": 27,
+    "changed_cells_photo": 6,
+    "blanked_shared_strings": 7,
+    "photos_checked": 1,
+    "legacy_markers_checked": 10
+  }
+}

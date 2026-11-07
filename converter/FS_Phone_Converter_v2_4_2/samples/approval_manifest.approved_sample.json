@@ -1,0 +1,310 @@
+{
+  "schema": "fs-converter-approval/1",
+  "status": "approved",
+  "layout_id": "genba-ijou-sokuho-2026-10-17",
+  "engine_policy_version": "report-2026-10-17/engine-2.3.4",
+  "template": {
+    "file_name": "synthetic_blank_template.xlsx",
+    "sha256": "84c1ff0d80830b6ab68bba87514739570ac11497acc281cf3c2cbd025a4a6d1e",
+    "size": 15158
+  },
+  "parts": [
+    {
+      "name": "[Content_Types].xml",
+      "sha256": "c8e4e85ef4ea7207867b1f3dd14a4e14b4cd2ff560341c5c51489a843fc22f70",
+      "size": 887,
+      "category": "modifiable",
+      "category_label": "指定範囲のみ変更可",
+      "purpose": "部品の種類一覧",
+      "risk_flags": []
+    },
+    {
+      "name": "_rels/.rels",
+      "sha256": "2207473c15e949b2441c3ebc91f13460c79a2e78c686fa505768cabbe8742e0f",
+      "size": 296,
+      "category": "immutable",
+      "category_label": "変更禁止",
+      "purpose": "参照関係",
+      "risk_flags": []
+    },
+    {
+      "name": "docProps/app.xml",
+      "sha256": "8d2cca18338d4de4e460423170784344dcee34fec81d96f06b080220a4e8b0cf",
+      "size": 232,
+      "category": "modifiable",
+      "category_label": "指定範囲のみ変更可",
+      "purpose": "アプリ情報",
+      "risk_flags": []
+    },
+    {
+      "name": "docProps/core.xml",
+      "sha256": "88b85017eabd1f65b0cb0f21e80db8c1e3bb0e37e97c53fcdbcec24e51a66461",
+      "size": 324,
+      "category": "modifiable",
+      "category_label": "指定範囲のみ変更可",
+      "purpose": "文書情報",
+      "risk_flags": []
+    },
+    {
+      "name": "xl/_rels/workbook.xml.rels",
+      "sha256": "93d3e6f1d305b050f7eb9409dd36784475339a71e29233747353916e6c036765",
+      "size": 1007,
+      "category": "modifiable",
+      "category_label": "指定範囲のみ変更可",
+      "purpose": "ブックの参照",
+      "risk_flags": []
+    },
+    {
+      "name": "xl/calcChain.xml",
+      "sha256": "6abb61480bddb99d586bb299b63f3494c2f614ecaa3d6351b7cd891f64a6e749",
+      "size": 163,
+      "category": "delete",
+      "category_label": "削除予定",
+      "purpose": "計算順序",
+      "risk_flags": []
+    },
+    {
+      "name": "xl/ctrlProps/ctrlProp1.xml",
+      "sha256": "c83c7b4409a81f234f518fa676a3ad5dfed196499adf746aefbdf8e413372ceb",
+      "size": 164,
+      "category": "immutable",
+      "category_label": "変更禁止",
+      "purpose": "フォームコントロール（チェックボックス等）",
+      "risk_flags": [
+        "要確認の内部部品"
+      ]
+    },
+    {
+      "name": "xl/drawings/_rels/drawing1.xml.rels",
+      "sha256": "484425fa2760429092ca8157cfb57844ea274a9290166afd8df23d45cfd190a9",
+      "size": 291,
+      "category": "immutable",
+      "category_label": "変更禁止",
+      "purpose": "図形の参照",
+      "risk_flags": []
+    },
+    {
+      "name": "xl/drawings/_rels/drawing2.xml.rels",
+      "sha256": "c7b29c0b1f13434108cba28e911deb118866048201720ae6041204beef2f4803",
+      "size": 564,
+      "category": "modifiable",
+      "category_label": "指定範囲のみ変更可",
+      "purpose": "写真帳の図形の参照",
+      "risk_flags": []
+    },
+    {
+      "name": "xl/drawings/drawing1.xml",
+      "sha256": "ed9ff6d8a0480ce4d6bd9ba4d070bc91164ec2afb835fa3ddd60b23ee616270a",
+      "size": 410,
+      "category": "immutable",
+      "category_label": "変更禁止",
+      "purpose": "図形配置",
+      "risk_flags": []
+    },
+    {
+      "name": "xl/drawings/drawing2.xml",
+      "sha256": "e79b48315ad58c96a29682d497be2347a4caf2cd3fd4fc1632a6f8adca0b1ca4",
+      "size": 776,
+      "category": "modifiable",
+      "category_label": "指定範囲のみ変更可",
+      "purpose": "写真帳の図形配置",
+      "risk_flags": []
+    },
+    {
+      "name": "xl/drawings/vmlDrawing1.vml",
+      "sha256": "0f37daf06c1b861439596ace6b9c1fb5cc47369e09686dd916b2211fe4b447f2",
+      "size": 91,
+      "category": "immutable",
+      "category_label": "変更禁止",
+      "purpose": "VML図形（チェックボックス・コメント枠など）",
+      "risk_flags": [
+        "VML図形"
+      ]
+    },
+    {
+      "name": "xl/externalLinks/_rels/externalLink1.xml.rels",
+      "sha256": "deabcfb99ac45757d9a50e03ef2e491a1eea84c21f3b60ebd0e709730ae0794c",
+      "size": 361,
+      "category": "immutable",
+      "category_label": "変更禁止",
+      "purpose": "外部ブックへのリンク",
+      "risk_flags": [
+        "要確認の内部部品"
+      ]
+    },
+    {
+      "name": "xl/externalLinks/externalLink1.xml",
+      "sha256": "afdcf0cc80374d7394e56f5383ad790172a602474588199c3a44baa018c99648",
+      "size": 256,
+      "category": "immutable",
+      "category_label": "変更禁止",
+      "purpose": "外部ブックへのリンク",
+      "risk_flags": [
+        "要確認の内部部品"
+      ]
+    },
+    {
+      "name": "xl/media/image1.jpeg",
+      "sha256": "9bc3bd5db08afe2f08aaf9e39cfbff0edd6b5180414bafebb4e3ac98db99848a",
+      "size": 819,
+      "category": "modifiable",
+      "category_label": "指定範囲のみ変更可",
+      "purpose": "写真枠の画像",
+      "risk_flags": []
+    },
+    {
+      "name": "xl/media/image2.jpeg",
+      "sha256": "fb4634a67e9fff8b704d1ad75db3fee2d20386c2ad17891bfe1286c856e98fc4",
+      "size": 819,
+      "category": "modifiable",
+      "category_label": "指定範囲のみ変更可",
+      "purpose": "写真枠の画像",
+      "risk_flags": []
+    },
+    {
+      "name": "xl/media/image3.jpeg",
+      "sha256": "96b82ca7088eb83c7080fa1ed1b49c4e48bcfd0cb199b4ab782ef8da266b349a",
+      "size": 819,
+      "category": "modifiable",
+      "category_label": "指定範囲のみ変更可",
+      "purpose": "写真枠の画像",
+      "risk_flags": []
+    },
+    {
+      "name": "xl/media/image4.emf",
+      "sha256": "20228c7eb2a51b9314a671b094018e06591b11d61728d302938a2eb1bf13d787",
+      "size": 87,
+      "category": "immutable",
+      "category_label": "変更禁止",
+      "purpose": "EMF画像（ロゴ・図など）",
+      "risk_flags": [
+        "写真枠以外の画像・EMF"
+      ]
+    },
+    {
+      "name": "xl/sharedStrings.xml",
+      "sha256": "11310e1607344a9225bb1d246fb4811672981f084ee698f9ca130b8d6f2fa17f",
+      "size": 698,
+      "category": "modifiable",
+      "category_label": "指定範囲のみ変更可",
+      "purpose": "共有文字列",
+      "risk_flags": []
+    },
+    {
+      "name": "xl/workbook.xml",
+      "sha256": "7acdd2adf62a3906c456e67a0761cc2219766a082f6c9840213742b352e6dd42",
+      "size": 413,
+      "category": "modifiable",
+      "category_label": "指定範囲のみ変更可",
+      "purpose": "ブック設定",
+      "risk_flags": []
+    },
+    {
+      "name": "xl/worksheets/_rels/sheet1.xml.rels",
+      "sha256": "1d3f2ffdabb32e79439b89ee04d75cc030857cfa7ce4fb6b9a9ec99f104eb645",
+      "size": 591,
+      "category": "immutable",
+      "category_label": "変更禁止",
+      "purpose": "ワークシートの参照",
+      "risk_flags": []
+    },
+    {
+      "name": "xl/worksheets/_rels/sheet2.xml.rels",
+      "sha256": "8d64d6eb2217d1547021155651000a1ccae134c47d616db95c8af97d9a1cdbf0",
+      "size": 298,
+      "category": "immutable",
+      "category_label": "変更禁止",
+      "purpose": "ワークシートの参照",
+      "risk_flags": []
+    },
+    {
+      "name": "xl/worksheets/sheet1.xml",
+      "sha256": "4ee7a9b01109ac4fabc44ccfc699673aeca09b2fb258c2586288bfb90c0b34a5",
+      "size": 830,
+      "category": "modifiable",
+      "category_label": "指定範囲のみ変更可",
+      "purpose": "報告書シート",
+      "risk_flags": []
+    },
+    {
+      "name": "xl/worksheets/sheet2.xml",
+      "sha256": "280a510f457565505e6c4deb34d1f538c324de1a241ee21c8796fd554d757f4b",
+      "size": 388,
+      "category": "modifiable",
+      "category_label": "指定範囲のみ変更可",
+      "purpose": "写真帳シート",
+      "risk_flags": []
+    },
+    {
+      "name": "xl/worksheets/sheet3.xml",
+      "sha256": "b7f32cca9e90a58361ede3dd9225033b13d0e63013b9d671cf1636938b48f96f",
+      "size": 430,
+      "category": "immutable",
+      "category_label": "変更禁止",
+      "purpose": "ワークシート（変換ツールは触らない）",
+      "risk_flags": [
+        "変換ツールが触らない追加シート"
+      ]
+    }
+  ],
+  "inspection": {
+    "inspector_version": "2.4.2-homebox-preview",
+    "inspected_at": "2026-11-07T03:40:25Z",
+    "sheets": [
+      {
+        "name": "報告書",
+        "state": "visible",
+        "part": "xl/worksheets/sheet1.xml",
+        "example_like": false
+      },
+      {
+        "name": "写真",
+        "state": "visible",
+        "part": "xl/worksheets/sheet2.xml",
+        "example_like": false
+      },
+      {
+        "name": "補助リスト",
+        "state": "visible",
+        "part": "xl/worksheets/sheet3.xml",
+        "example_like": false
+      }
+    ],
+    "external_relationships": [
+      {
+        "rels": "xl/externalLinks/_rels/externalLink1.xml.rels",
+        "count": 1,
+        "kinds": [
+          "ネットワーク/ファイル（externalLinkPath）"
+        ]
+      }
+    ],
+    "document_properties": {
+      "docProps/core.xml:creator": "値あり",
+      "docProps/core.xml:lastModifiedBy": "値あり",
+      "docProps/app.xml:Company": "値あり"
+    },
+    "counts": {
+      "comments": 0,
+      "defined_names": 0,
+      "ctrl_props": 1,
+      "vml": 1,
+      "emf": 1,
+      "media_other_than_photo_slots": 1
+    },
+    "blockers": []
+  },
+  "approval": {
+    "approval_id": "APV-20261107-9cc11e4a",
+    "approver": "サンプル承認者（架空）",
+    "approver_key_id": "ed25519:821f8918eb13146c",
+    "approved_at": "2026-11-07T03:40:25Z",
+    "valid_until": "2027-11-07T03:40:25Z",
+    "review_statement": "承認者は、このひな形をExcelで開き、全シート（非表示を含む）、コメント、外部リンクの参照先、名前の定義、図形・画像・EMF、チェックボックス、文書情報を確認し、過去の案件の情報や不要な個人情報が含まれていないことを確認した。"
+  },
+  "signature": {
+    "alg": "Ed25519",
+    "key_id": "ed25519:821f8918eb13146c",
+    "value": "0FGjAiPAn46iD411+aRUSveDplg3Uv9Uevz99t3bBs1hgzE1q6LjsgWLC2YxazvJ2ZMmZRXqSyeuUeLfdRASBw=="
+  }
+}

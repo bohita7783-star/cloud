@@ -1,0 +1,13 @@
+{
+  "schema": "fs-converter-trusted-approvers/1",
+  "note": "サンプル専用。本番の trusted_approvers.json にコピーしないこと。",
+  "keys": [
+    {
+      "key_id": "ed25519:821f8918eb13146c",
+      "name": "サンプル承認者（架空）",
+      "public_key": "G1+V6AHyPFWrLsgJfgPEd6U86UvdiTLzK580rfb6Q2g=",
+      "registered_at": "2026-11-07T03:40:25Z",
+      "revoked": false
+    }
+  ]
+}
